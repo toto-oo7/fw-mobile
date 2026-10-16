@@ -89,13 +89,16 @@ html, body {
   overscroll-behavior-y: none;
 }
 
-/* ⚠⚠ 用 `dvh` 而不是 `%`（2026-10-15）。
-   `height: 100%` 取的是**布局视口**，在 Safari 里它把地址栏/工具栏那块也算进去；
-   工具栏自动收起时页面不会跟着长高，结果底部多出一段谁都点不到的空白。
-   `dvh` 跟的是**动态视口**，工具栏藏了它就长、露出来它就缩 —— 两种状态都贴合。
-   加到主屏幕（独立窗口）时两者本来就相等，所以这条改动对 PWA 没有副作用。 */
+/* ⚠⚠ 高度**两头兜**（2026-10-16 修正，之前是直接 `height: 100dvh`）。
+   10-15 换成 `dvh` 是为了治「工具栏收起时页面不跟着长高、底部空一截」；
+   但 10-16 toto 又碰到同一类现象（截图里标签栏下方露 59px 页面底色）——
+   说明 `dvh` 在部分浏览器/webview 里会算得**比实际可视高度小**。
+   现在改成：
+     · `height: 100%`  —— 取 ICB，**永远等于当前可视区**（工具栏收起/展开都会跟着变）
+     · `min-height: 100dvh` —— 只在 dvh **更大**时才生效（dvh 算小了就听 100%）
+   两个一起用，哪个更贴合可视区就听哪个。 */
 @supports (height: 100dvh) {
-  html, body { height: 100dvh; }
+  html, body { min-height: 100dvh; }
 }
 
 body { display: flex; flex-direction: column; }
@@ -132,9 +135,14 @@ body { display: flex; flex-direction: column; }
 
 /* ---------------------------------------------------------------- 内容 */
 
-/* ⚠ 这里不再加 padding-bottom：底栏自己会留出安全区，
-   页面再垫一层就会在输入框和底栏之间多出一条谁都没有的缝。 */
-#main { flex: 1 1 auto; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+/* ⚠⚠ 标签栏改成 `position: fixed` 之后**不再占流内空间** → 这里必须补上等高的下内边距，
+   否则最后一条内容会被压在标签栏底下（2026-10-16）。
+   （改之前这里刻意**不加** padding：那时底栏还在流内、自己就留出了安全区，
+     再加一层会在输入框和底栏之间多一条谁都没有的缝。） */
+#main {
+  flex: 1 1 auto; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding-bottom: calc(var(--tabbar-h) + var(--safe-b));
+}
 .page { display: none; padding: 0 16px 16px; }
 .page.on { display: block; }
 
@@ -302,20 +310,32 @@ textarea { resize: none; line-height: 1.55; }
 /* ---------------------------------------------------------------- 标签栏 */
 
 #tabs {
-  flex: 0 0 auto; display: flex;
+  /* ★★ 钉在**视口**底部（2026-10-16 toto 反馈「下部白框可以贴底吗」）。
+     原来是 body 里 `flex: 0 0 auto` 的最后一个子项，位置取决于 body 有多高；
+     而 body 高度来自 `100dvh` —— 某些浏览器（iOS Safari 底栏收起/展开的那一瞬、
+     以及部分 webview）算出来的值会比**实际可视高度**小几十像素，
+     标签栏就停在 body 底部，下面露出一截页面底色，看着像「没贴底」。
+     `position: fixed; bottom: 0` 锚的是**视口**，跟 body 多高完全无关 → 永远贴底。 */
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+  display: flex;
   background: color-mix(in srgb, var(--card) 92%, transparent);
   backdrop-filter: saturate(180%) blur(20px);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
   border-top: 1px solid var(--line);
-  /* 安全区照留（不然 home 指示条会压在字上），但不再额外垫高 */
-  padding-bottom: var(--safe-b);
-  position: relative; z-index: 20;
 }
 #tabs button {
   flex: 1; border: none; background: none; color: var(--text-2);
-  font-family: inherit; font-size: 10px; padding: 5px 0 4px;
+  font-family: inherit; font-size: 10px;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 3px; cursor: pointer; height: var(--tabbar-h);
+  gap: 3px; cursor: pointer;
+  /* ★★ 安全区**并进按钮高度**，让「图标 + 文字」在整条白底里居中
+     （2026-10-16 toto 反馈：文字和 LOGO 应该居于白框中间）。
+     之前是 `#tabs` 用 `padding-bottom: var(--safe-b)` 把安全区撑在**外面**，
+     内容只能居中在那 46px 里 → 整条白底看下来内容明显偏上。
+     底部留 `min(8px, 安全区)`：完全居中会让文字贴住 home 指示条，留一点更稳；
+     没有安全区的设备（老 iPhone / 桌面浏览器）则不留，保持严格居中。 */
+  height: calc(var(--tabbar-h) + var(--safe-b));
+  padding: 0 0 min(8px, var(--safe-b));
   -webkit-tap-highlight-color: transparent;
 }
 /* ⚠ 图标现在是内联 SVG，尺寸由 CSS 定，不再受「字体有没有这个字形」影响 */

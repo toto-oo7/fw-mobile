@@ -573,6 +573,11 @@
     h += '<div class="row"><div class="grow"><div class="txt">小浮窗 · 手机版</div>' +
       '<div class="sub">和电脑端共用一份同步文档，改动按「最后写入的赢」合并，' +
       '而且只影响改到的那一条。同一时刻的冲突以删除为准，所以删掉的东西不会自己回来。</div></div></div>';
+    // ★ 版本号（2026-10-16 加）：专门用来判断「这台手机上到底跑的是哪一版」。
+    //   改完界面如果手机上看不到变化，翻到这一页看这行 —— 对不上就是还缓存着旧版。
+    h += '<div class="row"><div class="grow"><div class="txt">界面版本</div>' +
+      '<div class="sub">如果手机上看不到最新改动，翻到这一页核对这行</div></div>' +
+      '<span class="mono" id="ver-slot">…</span></div>';
     h += '</div>';
 
     h += '<div class="hint" style="padding-bottom:20px">' +
@@ -581,6 +586,17 @@
       '</div>';
 
     $('#set-body').innerHTML = h;
+
+    // ⚠ 版本号**从 Cache Storage 的缓存名里读**，而不是写死在代码里 ——
+    //   这样它反映的是「这台手机上**实际在用**的那份缓存」，
+    //   正好用来判断有没有拿到新版（写死的话，app.js 是新的、app.css 是旧的就会骗人）。
+    if (window.caches && window.caches.keys) {
+      caches.keys().then(function (ks) {
+        var mine = ks.filter(function (k) { return k.indexOf('fw-mobile-') === 0; }).sort();
+        var el = $('#ver-slot');
+        if (el) el.textContent = mine.length ? mine[mine.length - 1].replace('fw-mobile-', '') : '无缓存';
+      }).catch(function () {});
+    }
   }
 
   function syncMsg() {
@@ -1024,6 +1040,23 @@
 
     // 注册 Service Worker（离线可开）
     if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+      // ★★ 新版本装好后**自动刷一次页面**（2026-10-16）。
+      //   为什么需要：sw.js 走的是 stale-while-revalidate —— 打开的那一瞬间，
+      //   页面**已经被旧缓存渲染完了**；新文件其实已经装好，但要等**下一次**打开才生效。
+      //   结果就是每次改完都「看着没变」，以为没推上去（toto 已经踩过两次）。
+      //   这里监听 controllerchange（新 SW 接管当前页）→ 自动 reload 一次
+      //   → 用户打开一次就是新版，不用手动关掉重开。
+      //   ⚠ 两个防死循环的保险：
+      //     ① 首次注册时 `clients.claim()` 也会触发 controllerchange，那不算「更新」
+      //        → 用「进来时本来就有没有 controller」判断，第一次不刷。
+      //     ② 刷过一次就不再刷（reload 后 SW 已是最新，本来也不会再触发，再加一道）。
+      var hadCtl = !!navigator.serviceWorker.controller;
+      var swReloaded = false;
+      navigator.serviceWorker.addEventListener('controllerchange', function () {
+        if (!hadCtl || swReloaded) return;
+        swReloaded = true;
+        location.reload();
+      });
       navigator.serviceWorker.register('sw.js').catch(function () { /* 无所谓 */ });
     }
   }

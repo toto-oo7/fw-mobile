@@ -123,7 +123,8 @@
       return {
         id: String(t.id), text: String(t.text || ''),
         done: !!t.done, star: Math.max(0, Math.min(3, parseInt(t.star, 10) || 0)),
-        group: String(t.group || '')
+        group: String(t.group || ''),
+        done_at: String(t.done_at || '')
       };
     });
     out.groups = (Array.isArray(s.groups) ? s.groups : []).filter(function (g) {
@@ -179,7 +180,10 @@
     s.todos.forEach(function (t) {
       out['todo:' + t.id] = {
         text: t.text || '', done: !!t.done,
-        star: t.star || 0, group: t.group || ''
+        star: t.star || 0, group: t.group || '',
+        // ⚠ 完成日期必须带上 —— 和桌面端 `records_from_dat` 的白名单一一对应，
+        //   漏了就是「手机一勾选、桌面日历上的灰圈就没了」，而且不报错。
+        done_at: t.done_at || ''
       };
     });
     out['order:todos'] = s.todos.map(function (t) { return t.id; });
@@ -256,7 +260,9 @@
       var d = (live['todo:' + i] || {}).d || {};
       return {
         id: i, text: String(d.text || ''), done: !!d.done,
-        star: parseInt(d.star, 10) || 0, group: String(d.group || '')
+        star: parseInt(d.star, 10) || 0, group: String(d.group || ''),
+        // 老记录没有这个字段 → 补空串，形状和本地新建的一致
+        done_at: String(d.done_at || '')
       };
     });
 

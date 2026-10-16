@@ -1,0 +1,27 @@
+{
+  "name": "小浮窗",
+  "short_name": "小浮窗",
+  "description": "和电脑端双向同步的待办清单 / 日历备注 / 临时备忘录",
+  "lang": "zh-CN",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "id": "fw-mobile",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "categories": ["productivity", "utilities"],
+  "icons": [
+    { "src": "icons/icon-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "待办", "url": "./?t=todo" },
+    { "name": "日历", "url": "./?t=cal" },
+    { "name": "备忘", "url": "./?t=memo" }
+  ]
+}

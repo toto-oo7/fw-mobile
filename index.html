@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="小浮窗">
+<meta name="theme-color" content="#F2F2F7">
+<meta name="format-detection" content="telephone=no">
+<meta name="description" content="小浮窗手机版 —— 和电脑端双向同步的待办 / 日历 / 备忘">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="app.css">
+<title>小浮窗</title>
+</head>
+<body>
+
+<header id="hdr">
+  <div id="hdr-title">待办<span id="hdr-sub"></span></div>
+  <div id="dot" title="同步状态"></div>
+  <button class="hbtn" id="hdr-act" hidden></button>
+</header>
+
+<main id="main">
+
+  <!-- ------------------------------------------------------------ 待办 -->
+  <section class="page on" id="p-todo">
+    <div id="todo-tools"></div>
+    <div id="todo-list"></div>
+    <div class="composer">
+      <select id="todo-group" aria-label="加到哪个分组"></select>
+      <input type="text" id="todo-inp" placeholder="加一条…" autocomplete="off"
+             autocorrect="off" autocapitalize="off" enterkeyhint="done">
+      <button class="addbtn" id="todo-add" aria-label="添加">＋</button>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------------------ 日历 -->
+  <section class="page" id="p-cal">
+    <div id="calhdr">
+      <button id="cal-prev" aria-label="上个月">‹</button>
+      <div class="m" id="cal-title"></div>
+      <button id="cal-next" aria-label="下个月">›</button>
+    </div>
+    <div id="calgrid"></div>
+    <div id="cal-hint" class="hint"></div>
+  </section>
+
+  <!-- ------------------------------------------------------------ 备忘 -->
+  <section class="page" id="p-memo">
+    <div class="card" style="padding:10px">
+      <textarea id="memo" rows="14" placeholder="随手记点什么…"></textarea>
+    </div>
+    <div class="hint" id="memo-info"></div>
+  </section>
+
+  <!-- ------------------------------------------------------------ 设置 -->
+  <section class="page" id="p-set">
+    <div id="set-body"></div>
+  </section>
+
+</main>
+
+<!-- ⚠ 底栏图标用**内联 SVG 线性图标**，不用 Unicode 字形（2026-10-15 换）。
+     原因：`☑ ▦ ✎ ⚙` 是四套不同来源的字形 —— 粗细、大小、对齐都不一样；
+     而且 `⚙`(U+2699) 在 iOS 上会掉进**彩色 emoji 字体**，跟旁边三个完全不是一套。
+     SVG 则是同一条线（stroke 1.8）、同一个 24 格画布、颜色跟着 currentColor 走，
+     选中时自动变蓝，深浅主题都不用管。 -->
+<nav id="tabs">
+  <button data-tab="todo" class="on"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.7" y="3.7" width="16.6" height="16.6" rx="5"/><path d="M8.3 12.3l2.7 2.7 5-5.7"/></svg></span>待办</button>
+  <button data-tab="cal"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.7" y="5.2" width="16.6" height="15.1" rx="4.5"/><path d="M3.7 10.3h16.6"/><path d="M8.4 3.3v3.8M15.6 3.3v3.8"/></svg></span>日历</button>
+  <button data-tab="memo"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.3 3.7h7.2l4.2 4.2v12.4H6.3z"/><path d="M13.5 3.7v4.2h4.2"/><path d="M9.3 13.2h5.4M9.3 16.6h3.4"/></svg></span>备忘</button>
+  <button data-tab="set"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.2 8.6h8.2M18.9 8.6h1.1M4.2 15.4h3.3M12.8 15.4h7.2"/><circle cx="15.5" cy="8.6" r="2.4"/><circle cx="9.7" cy="15.4" r="2.4"/></svg></span>设置</button>
+</nav>
+
+<div id="scrim"></div>
+<div id="sheet"><div class="grab"></div><div id="sheet-body"></div></div>
+<div id="toast"></div>
+
+<script src="records.js"></script>
+<script src="gist.js"></script>
+<script src="store.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

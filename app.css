@@ -1,0 +1,367 @@
+/* ============================================================================
+ * app.css —— 手机版样式
+ * ============================================================================
+ * 观感目标：**像 iOS 自带 App**，而不是「一个网页」。
+ *   · 分组卡片式列表（inset grouped，和「设置」一个路子）
+ *   · 底部标签栏 + 毛玻璃
+ *   · 只用系统字体、圆角、细分隔线；少描边、多留白
+ *   · 深/浅主题走 CSS 变量，跟随系统
+ *   · 安全区（刘海 + 底部小横条）全留出来，装到主屏后不会被切掉
+ *
+ * ⚠ 颜色和桌面端保持一致：强调色 #0A84FF / #007AFF，次要文字 #98989D，
+ *   浅色分组头底色 #F2F2F7 —— 两端看起来才像同一个东西。
+ */
+
+:root {
+  --accent: #007AFF;
+  --accent-dim: rgba(0, 122, 255, .12);
+  --bg: #F2F2F7;
+  --card: #FFFFFF;
+  --card-2: #F2F2F7;
+  --text: #000000;
+  --text-2: #8E8E93;
+  --text-3: #C7C7CC;
+  --line: rgba(60, 60, 67, .18);
+  --red: #FF3B30;
+  --green: #34C759;
+  --orange: #FF9500;
+  /* ⚠ 分组头底色：必须和**卡片**（白）拉开差距。之前直接用 --card-2 (#F2F2F7)，
+     而页面底色恰好也是 #F2F2F7 —— 组头一贴上去就看不见了，
+     toto 当初要的「一眼看出和子项的差别」就没了。这里单独给一个更实的灰。 */
+  --group-bg: #E4E4E9;
+  --radius: 12px;
+  /* ⚠ 底栏总高 = 这个值 + 底部安全区。52 偏高了，内容只有一行图标 + 一行字，
+     下面会剩一大截空；46 刚好（2026-10-15 toto 反馈「底下空白太大」）。 */
+  --tabbar-h: 46px;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-t: env(safe-area-inset-top, 0px);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --accent: #0A84FF;
+    --accent-dim: rgba(10, 132, 255, .22);
+    --bg: #000000;
+    --card: #1C1C1E;
+    --card-2: #2C2C2E;
+    --text: #FFFFFF;
+    --text-2: #98989D;
+    --text-3: #48484A;
+    --line: rgba(84, 84, 88, .6);
+    --red: #FF453A;
+    --green: #30D158;
+    --orange: #FF9F0A;
+    --group-bg: #2C2C2E;
+  }
+}
+
+/* 手动切换主题时覆盖系统设置 */
+html[data-theme="light"] {
+  --accent: #007AFF; --accent-dim: rgba(0,122,255,.12);
+  --bg: #F2F2F7; --card: #FFFFFF; --card-2: #F2F2F7;
+  --text: #000000; --text-2: #8E8E93; --text-3: #C7C7CC;
+  --line: rgba(60,60,67,.18); --red: #FF3B30; --green: #34C759; --orange: #FF9500;
+  --group-bg: #E4E4E9;
+}
+html[data-theme="dark"] {
+  --accent: #0A84FF; --accent-dim: rgba(10,132,255,.22);
+  --bg: #000000; --card: #1C1C1E; --card-2: #2C2C2E;
+  --text: #FFFFFF; --text-2: #98989D; --text-3: #48484A;
+  --line: rgba(84,84,88,.6); --red: #FF453A; --green: #30D158; --orange: #FF9F0A;
+  --group-bg: #2C2C2E;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+/* ⚠⚠ 必须显式写这条：只要给元素设了 display（比如 .hbtn 的 inline-flex），
+   浏览器默认的 `[hidden] { display: none }` 就被盖掉了 ——
+   于是 `el.hidden = true` 完全不起作用（切到日历页顶栏还挂着「排序」）。
+   用 !important 把它按回去。 */
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0; padding: 0; height: 100%;
+  background: var(--bg); color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC",
+               "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  font-size: 16px; line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
+}
+
+/* ⚠⚠ 用 `dvh` 而不是 `%`（2026-10-15）。
+   `height: 100%` 取的是**布局视口**，在 Safari 里它把地址栏/工具栏那块也算进去；
+   工具栏自动收起时页面不会跟着长高，结果底部多出一段谁都点不到的空白。
+   `dvh` 跟的是**动态视口**，工具栏藏了它就长、露出来它就缩 —— 两种状态都贴合。
+   加到主屏幕（独立窗口）时两者本来就相等，所以这条改动对 PWA 没有副作用。 */
+@supports (height: 100dvh) {
+  html, body { height: 100dvh; }
+}
+
+body { display: flex; flex-direction: column; }
+
+/* ---------------------------------------------------------------- 顶栏 */
+
+#hdr {
+  flex: 0 0 auto;
+  padding: calc(var(--safe-t) + 8px) 16px 8px;
+  background: var(--bg);
+  display: flex; align-items: center; gap: 8px;
+  position: sticky; top: 0; z-index: 20;
+}
+#hdr-title { font-size: 28px; font-weight: 700; letter-spacing: -.4px; flex: 1; }
+#hdr-sub { font-size: 13px; color: var(--text-2); font-weight: 400; margin-left: 8px; }
+
+.hbtn {
+  border: none; background: none; color: var(--accent);
+  font-size: 15px; font-family: inherit; padding: 6px 4px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
+}
+.hbtn:active { opacity: .5; }
+.hbtn.muted { color: var(--text-2); }
+
+/* 同步状态小圆点（对应桌面端标题栏那个徽标） */
+#dot {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--text-3); flex: 0 0 auto;
+}
+#dot.ok { background: var(--green); }
+#dot.err { background: var(--red); }
+#dot.busy { background: var(--orange); animation: pulse 1s infinite; }
+@keyframes pulse { 50% { opacity: .25; } }
+
+/* ---------------------------------------------------------------- 内容 */
+
+/* ⚠ 这里不再加 padding-bottom：底栏自己会留出安全区，
+   页面再垫一层就会在输入框和底栏之间多出一条谁都没有的缝。 */
+#main { flex: 1 1 auto; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.page { display: none; padding: 0 16px 16px; }
+.page.on { display: block; }
+
+/* ⚠⚠ 待办页要「撑满 + 输入框钉在底部」（2026-10-15 toto 反馈「底下空白太大」）。
+   之前 `.composer` 只是 `position: sticky`，而 sticky 在**内容比容器短**时不会把元素推到底
+   —— 列表一少，输入框就停在半空，下面留一大片空。
+   现在把整页做成撑满的纵向 flex：工具行和输入框固定，中间那个列表自己滚。
+   内容再少，输入框也贴着底栏。 */
+#p-todo.on {
+  display: flex; flex-direction: column;
+  height: 100%; padding-bottom: 0;
+}
+#p-todo #todo-tools { flex: 0 0 auto; }
+#p-todo #todo-list {
+  flex: 1 1 auto; min-height: 0;
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
+}
+#p-todo .composer { flex: 0 0 auto; position: static; }
+
+/* 分组卡片 */
+.card {
+  background: var(--card); border-radius: var(--radius);
+  overflow: hidden; margin-bottom: 14px;
+}
+.card-t {
+  font-size: 13px; color: var(--text-2); text-transform: none;
+  padding: 4px 4px 6px; font-weight: 500;
+}
+.sec-t { font-size: 13px; color: var(--text-2); padding: 16px 4px 6px; font-weight: 500; }
+
+.row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 14px; min-height: 46px;
+  position: relative;
+}
+.row + .row::before {
+  content: ''; position: absolute; left: 14px; right: 0; top: 0;
+  height: 1px; background: var(--line);
+}
+.row.tap:active { background: var(--card-2); }
+.row .grow { flex: 1; min-width: 0; }
+.row .txt { word-break: break-word; }
+.row .sub { font-size: 12.5px; color: var(--text-2); margin-top: 2px; }
+.row .val { color: var(--text-2); font-size: 15px; }
+.chev { color: var(--text-3); font-size: 15px; flex: 0 0 auto; }
+
+/* 已完成：划掉 + 变灰 */
+.done .txt { color: var(--text-2); text-decoration: line-through; }
+
+/* ---------------------------------------------------------- 勾选圆圈 */
+
+.dot-check {
+  width: 24px; height: 24px; border-radius: 50%; flex: 0 0 auto;
+  border: 1.6px solid var(--text-3); background: none;
+  display: flex; align-items: center; justify-content: center;
+  color: transparent; font-size: 14px; line-height: 1; cursor: pointer;
+}
+.dot-check.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.dot-check:active { transform: scale(.88); }
+
+/* 重要程度：○ / ● / ●● / ●●●（和桌面端同一套字形，别用 emoji） */
+.star { color: var(--orange); font-size: 12px; letter-spacing: .5px; flex: 0 0 auto; }
+.star.s0 { color: var(--text-3); }
+
+/* 分组头 —— 每组一张卡，组头是卡片顶上那条**实心色块**。
+   ⚠ 色块必须是 --group-bg 而不是 --card-2：浅色下页面底色就是 #F2F2F7，
+     组头用同一个灰会整条隐形（toto 要的「一眼看出和子项的差别」就没了）。 */
+.ghead {
+  display: flex; align-items: center; gap: 8px;
+  padding: 11px 14px;
+  background: var(--group-bg);
+  font-weight: 600; font-size: 15px;
+  position: relative;
+}
+.ghead .gname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ghead .gcount { font-size: 12.5px; color: var(--text-2); font-weight: 400; }
+.ghead .tri { font-size: 11px; color: var(--text-2); width: 12px; }
+/* 组内条目往右缩一点，层级更清楚 */
+.gwrap .row { padding-left: 22px; }
+.gwrap .row::before { left: 22px; }
+.gwrap .hint { padding-left: 22px; }
+/* 每组之间空开一点，一眼能看出是「几个组」而不是「一长条」 */
+.gcard { margin-bottom: 12px; }
+
+/* 排序模式里的上下移按钮 */
+.mv {
+  border: none; background: var(--card-2); color: var(--accent);
+  width: 30px; height: 30px; border-radius: 8px; font-size: 14px;
+  font-family: inherit; cursor: pointer; flex: 0 0 auto;
+}
+.mv:disabled { color: var(--text-3); }
+.mv:active { opacity: .5; }
+/* 删除类的小按钮用红色 —— 蓝色的 ✕ 看着像「关闭」，容易误点 */
+.mv.del { color: var(--red); }
+
+/* ---------------------------------------------------------------- 输入 */
+
+/* ⚠ 别只写 `input[type=text]` —— Token 用的是 type=password，
+   漏掉的话它会是浏览器默认的白底方框，跟旁边的输入框完全不像一套（2026-10-15 抓到）。 */
+input:not([type=checkbox]):not([type=radio]), textarea, select {
+  font-family: inherit; font-size: 16px;   /* ⚠ <16px 时 iOS 会自动放大页面 */
+  color: var(--text); background: var(--card-2);
+  border: none; border-radius: 10px; padding: 11px 12px; width: 100%;
+  -webkit-appearance: none; appearance: none;
+}
+input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent-dim); }
+textarea { resize: none; line-height: 1.55; }
+
+/* ⚠ 输入框现在由 `#p-todo` 的 flex 钉在底部，**不再需要 sticky 和那层渐变**：
+   列表在它自己的滚动区里滚，不会有东西从它下面穿过，所以底色直接用页面色就行。 */
+.composer {
+  display: flex; gap: 8px; align-items: center;
+  padding: 8px 0 4px;
+  background: var(--bg);
+}
+.composer input { flex: 1 1 auto; min-width: 0; }
+/* ⚠ 全局 select 是 width:100%，在 flex 里会跟输入框抢宽度，把输入框挤成一条缝。
+   这里必须显式收窄。 */
+.composer select {
+  flex: 0 0 auto; width: auto; max-width: 42%;
+  padding: 11px 8px; font-size: 14px;
+}
+.addbtn {
+  border: none; background: var(--accent); color: #fff;
+  width: 40px; height: 40px; border-radius: 50%; font-size: 22px; line-height: 1;
+  flex: 0 0 auto; cursor: pointer; font-family: inherit;
+}
+.addbtn:active { opacity: .6; }
+
+/* ---------------------------------------------------------------- 按钮 */
+
+.btn {
+  border: none; background: var(--accent); color: #fff;
+  border-radius: 10px; padding: 11px 16px; font-size: 15px; font-weight: 500;
+  font-family: inherit; cursor: pointer; width: 100%;
+}
+.btn.ghost { background: var(--card-2); color: var(--accent); }
+.btn.danger { background: var(--card-2); color: var(--red); }
+.btn:active { opacity: .6; }
+.btn:disabled { opacity: .4; }
+
+/* ---------------------------------------------------------------- 日历 */
+
+#calhdr { display: flex; align-items: center; justify-content: center; gap: 18px; padding: 4px 0 12px; }
+#calhdr .m { font-size: 19px; font-weight: 600; min-width: 130px; text-align: center; }
+#calhdr button { border: none; background: none; color: var(--accent); font-size: 20px; padding: 4px 10px; cursor: pointer; font-family: inherit; }
+
+#calgrid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+#calgrid .wk { text-align: center; font-size: 12px; color: var(--text-2); padding: 4px 0 6px; }
+#calgrid .d {
+  aspect-ratio: 1 / 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 2px;
+  border-radius: 50%; font-size: 15px; cursor: pointer; position: relative;
+}
+#calgrid .d.out { color: var(--text-3); }
+#calgrid .d.today { color: var(--accent); font-weight: 700; }
+#calgrid .d.sel { background: var(--accent); color: #fff; font-weight: 600; }
+#calgrid .d .pd { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
+#calgrid .d.sel .pd { background: #fff; }
+#calgrid .d.today:not(.sel) .pd { background: var(--accent); }
+
+/* ---------------------------------------------------------------- 标签栏 */
+
+#tabs {
+  flex: 0 0 auto; display: flex;
+  background: color-mix(in srgb, var(--card) 92%, transparent);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-top: 1px solid var(--line);
+  /* 安全区照留（不然 home 指示条会压在字上），但不再额外垫高 */
+  padding-bottom: var(--safe-b);
+  position: relative; z-index: 20;
+}
+#tabs button {
+  flex: 1; border: none; background: none; color: var(--text-2);
+  font-family: inherit; font-size: 10px; padding: 5px 0 4px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 3px; cursor: pointer; height: var(--tabbar-h);
+  -webkit-tap-highlight-color: transparent;
+}
+/* ⚠ 图标现在是内联 SVG，尺寸由 CSS 定，不再受「字体有没有这个字形」影响 */
+#tabs button .ic { display: flex; align-items: center; justify-content: center; }
+#tabs button .ic svg { width: 22px; height: 22px; display: block; }
+#tabs button.on { color: var(--accent); }
+#tabs button:active { opacity: .55; }
+
+/* ---------------------------------------------------------------- 弹层 */
+
+#scrim {
+  position: fixed; inset: 0; background: rgba(0, 0, 0, .38);
+  opacity: 0; pointer-events: none; transition: opacity .22s; z-index: 40;
+}
+#scrim.on { opacity: 1; pointer-events: auto; }
+
+#sheet {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+  background: var(--bg); border-radius: 16px 16px 0 0;
+  padding: 10px 16px calc(16px + var(--safe-b));
+  max-height: 86vh; overflow-y: auto;
+  transform: translateY(102%); transition: transform .26s cubic-bezier(.32,.72,0,1);
+}
+#sheet.on { transform: none; }
+#sheet .grab { width: 36px; height: 5px; border-radius: 3px; background: var(--text-3); margin: 2px auto 12px; }
+#sheet h3 { margin: 0 0 12px; font-size: 19px; font-weight: 600; }
+#sheet .lbl { font-size: 13px; color: var(--text-2); padding: 12px 4px 6px; }
+
+#toast {
+  position: fixed; left: 50%; bottom: calc(80px + var(--safe-b));
+  transform: translateX(-50%) translateY(10px);
+  background: rgba(30, 30, 32, .94); color: #fff;
+  padding: 10px 16px; border-radius: 12px; font-size: 14px;
+  max-width: 86vw; text-align: center; z-index: 90;
+  opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s;
+}
+#toast.on { opacity: 1; transform: translateX(-50%); }
+
+/* ---------------------------------------------------------------- 杂项 */
+
+.empty { text-align: center; color: var(--text-2); font-size: 14px; padding: 40px 20px; }
+.hint { font-size: 12.5px; color: var(--text-2); padding: 6px 4px; line-height: 1.5; }
+.warn { color: var(--orange); }
+.err { color: var(--red); }
+.ok { color: var(--green); }
+.mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12px; word-break: break-all; }
+.spin { display: inline-block; animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.pill {
+  display: inline-block; font-size: 11.5px; padding: 1px 7px; border-radius: 20px;
+  background: var(--card-2); color: var(--text-2); margin-left: 6px;
+}

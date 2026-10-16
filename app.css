@@ -295,6 +295,9 @@ textarea { resize: none; line-height: 1.55; }
 #calgrid .d .pd { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
 #calgrid .d.sel .pd { background: #fff; }
 #calgrid .d.today:not(.sel) .pd { background: var(--accent); }
+/* 灰点 = 这天在待办清单里划掉过东西（和桌面的灰圈是同一件事） */
+#calgrid .d .fd { width: 5px; height: 5px; border-radius: 50%; background: var(--text-3); }
+#calgrid .d.sel .fd { background: rgba(255, 255, 255, .75); }
 
 /* ---------------------------------------------------------------- 标签栏 */
 

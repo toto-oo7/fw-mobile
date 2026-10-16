@@ -16,8 +16,11 @@
  *     ⚠ 老客户端不认识这个字段，一勾选就会把它推没 → 必须让它们拿到新 records.js
  * v6：底部标签栏改成「钉在视口底部 + 内容居中」（2026-10-16）
  *     ⚠ 改的是 app.css：老客户端缓存着旧样式，白条下方会一直露一截
+ * v7：新版装好后**自动刷一次页面** + 设置页显示「界面版本」（2026-10-16）
+ *     ⚠ 病根：stale-while-revalidate 让**打开那一瞬间还是旧界面**，要下次打开才变
+ *       → 每次改完 toto 都以为「没推上去」。现在 controllerchange 后自动 reload。
  */
-var CACHE = 'fw-mobile-v6';
+var CACHE = 'fw-mobile-v7';
 
 var ASSETS = [
   './',

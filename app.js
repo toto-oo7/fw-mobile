@@ -354,7 +354,7 @@
     S.mutate(function (st) {
       st.todos.push({
         id: R.newId(), text: text, done: false, star: 0,
-        group: ui.newTodoGroup || ''
+        group: ui.newTodoGroup || '', done_at: ''
       });
     });
   }
@@ -378,6 +378,12 @@
     var h = '';
     WEEK.forEach(function (w) { h += '<div class="wk">' + w + '</div>'; });
 
+    // {日期: 这天划掉了几项} —— 只在循环外扫一遍 todos，别在 42 个格子里各扫一次
+    var finMap = {};
+    S.state.todos.forEach(function (t) {
+      if (t.done && t.done_at) finMap[t.done_at] = (finMap[t.done_at] || 0) + 1;
+    });
+
     for (var i = 0; i < 42; i++) {
       var d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
       var k = dayKey(d.getFullYear(), d.getMonth(), d.getDate());
@@ -385,7 +391,8 @@
       var n = (S.state.cal[k] || []).length;
       var cls = 'd' + (out ? ' out' : '') + (k === tkey ? ' today' : '') + (k === ui.selDay ? ' sel' : '');
       h += '<div class="' + cls + '" data-day="' + k + '">' + d.getDate() +
-        (n ? '<span class="pd"></span>' : '') + '</div>';
+        (n ? '<span class="pd"></span>' : '') +
+        (finMap[k] ? '<span class="fd"></span>' : '') + '</div>';
     }
     $('#calgrid').innerHTML = h;
 
@@ -417,8 +424,10 @@
 
   function drawDay(root, key) {
     var items = S.state.cal[key] || [];
+    // 这天在待办清单里划掉的项目（和桌面 DayDialog 里那块对应）
+    var fin = S.state.todos.filter(function (t) { return t.done && t.done_at === key; });
     var h = '';
-    if (!items.length) h = '<div class="hint">这天还没有记录。</div>';
+    if (!items.length && !fin.length) h = '<div class="hint">这天还没有记录。</div>';
     items.forEach(function (x) {
       var gname = '';
       S.state.groups.forEach(function (g) { if (g.id === x.group) gname = g.name; });
@@ -428,6 +437,17 @@
         (gname ? '<div class="sub">' + esc(gname) + '</div>' : '') + '</div>' +
         '<button class="mv del" data-act="cdel" style="width:30px;height:30px">✕</button></div>';
     });
+    if (fin.length) {
+      h += '<div class="lbl">这天划掉的 · ' + fin.length + '</div>';
+      fin.forEach(function (t) {
+        var gname = '';
+        S.state.groups.forEach(function (g) { if (g.id === t.group) gname = g.name; });
+        h += '<div class="row done">' +
+          '<button class="dot-check on" disabled>✓</button>' +
+          '<div class="grow"><div class="txt">' + esc(t.text) + '</div>' +
+          (gname ? '<div class="sub">' + esc(gname) + '</div>' : '') + '</div></div>';
+      });
+    }
     $('#daylist', root).innerHTML = h;
   }
 
@@ -631,8 +651,17 @@
     var act2 = e.target.closest('[data-act]');
     var a = act2 ? act2.dataset.act : '';
     if (a === 'toggle') {
+      // ⚠ 别用 toISOString().slice(0,10)：那是 UTC —— 东八区晚上 8 点后
+      //   算出来的是「昨天」，灰圈会标错格子。
+      var _t = new Date();
+      var today = dayKey(_t.getFullYear(), _t.getMonth(), _t.getDate());
       S.mutate(function (st) {
-        st.todos.forEach(function (t) { if (t.id === id) t.done = !t.done; });
+        st.todos.forEach(function (t) {
+          if (t.id !== id) return;
+          t.done = !t.done;
+          // 完成日期（桌面日历上那个灰圈）—— 取消勾选要一起清掉
+          t.done_at = t.done ? today : '';
+        });
       });
       render();
     } else if (a === 'up' || a === 'dn') {

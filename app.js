@@ -19,6 +19,15 @@
   var S = window.Store;
   var GH = window.GH;
 
+  /* ★★ 界面代码的「构建号」—— **写死在这里**，每次改界面就改一下（2026-10-17 加）。
+     为什么不能只靠 SW 的缓存名（v7/v8…）：那个只证明 **Service Worker 是新的**，
+     证明不了**页面实际加载的 app.css / app.js 是新的** ——
+     页面完全可能是「新 SW + 旧缓存快照」。所以诊断必须同时给出：
+       ① 这行常量  → 证明 app.js 是新的
+       ② #tabs 的 computed position → 证明 app.css 是新的（旧版是 static，v8 起是 fixed）
+       ③ 底栏底 / 视口高 → 直接量「到底贴没贴底」，不靠肉眼判断 */
+  var APP_BUILD = 'b8';
+
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
 
@@ -573,10 +582,15 @@
     h += '<div class="row"><div class="grow"><div class="txt">小浮窗 · 手机版</div>' +
       '<div class="sub">和电脑端共用一份同步文档，改动按「最后写入的赢」合并，' +
       '而且只影响改到的那一条。同一时刻的冲突以删除为准，所以删掉的东西不会自己回来。</div></div></div>';
-    // ★ 版本号（2026-10-16 加）：专门用来判断「这台手机上到底跑的是哪一版」。
-    //   改完界面如果手机上看不到变化，翻到这一页看这行 —— 对不上就是还缓存着旧版。
+    // ★ 版本 / 自检（2026-10-16 加，2026-10-17 扩成三项）
+    //   改完界面如果手机上看不到变化，翻到这一页看这行。
+    //   ⚠ 只显示 SW 缓存名是**不够的**（上一版就栽在这）：缓存名对得上、CSS 却还是旧的。
+    //   现在三样一起给，一眼定案：
+    //     b8        → app.js 是新的（常量写死在代码里）
+    //     fixed     → app.css 是新的（旧版底栏是 static，v8 起是 fixed）
+    //     852/852   → 底栏底边 / 视口高。两个数相等 = 真的贴底；差几十 = 没贴住
     h += '<div class="row"><div class="grow"><div class="txt">界面版本</div>' +
-      '<div class="sub">如果手机上看不到最新改动，翻到这一页核对这行</div></div>' +
+      '<div class="sub">看不到最新改动时，翻到这一页核对这行</div></div>' +
       '<span class="mono" id="ver-slot">…</span></div>';
     h += '</div>';
 
@@ -587,16 +601,29 @@
 
     $('#set-body').innerHTML = h;
 
-    // ⚠ 版本号**从 Cache Storage 的缓存名里读**，而不是写死在代码里 ——
-    //   这样它反映的是「这台手机上**实际在用**的那份缓存」，
-    //   正好用来判断有没有拿到新版（写死的话，app.js 是新的、app.css 是旧的就会骗人）。
-    if (window.caches && window.caches.keys) {
-      caches.keys().then(function (ks) {
-        var mine = ks.filter(function (k) { return k.indexOf('fw-mobile-') === 0; }).sort();
-        var el = $('#ver-slot');
-        if (el) el.textContent = mine.length ? mine[mine.length - 1].replace('fw-mobile-', '') : '无缓存';
-      }).catch(function () {});
-    }
+    // ⚠ 这行以前是「读 Cache Storage 的缓存名」，看起来更权威，其实**会骗人**：
+    //   缓存名只能证明 SW 换了版本，页面完全可能是「新 SW + 旧文件快照」。
+    //   现在改成直接量：代码构建号 + 底栏的 computed position + 底栏底边/视口高。
+    var el = $('#ver-slot');
+    if (el) el.textContent = verText();
+  }
+
+  /* 一行自检：`b8 · fixed · 852/852 ✓`
+       · b8     = app.js 构建号（写死在上面的常量）
+       · fixed  = #tabs 的 position。旧版 app.css 是 static → 说明 CSS 还是旧的
+       · 852/852 = 底栏底边 / 视口高。相等就是真贴底，差多少直接写出来
+     这三样合起来，**不用截图、不用猜**，用户念一下就知道问题在哪一层。 */
+  function verText() {
+    var out = [APP_BUILD];
+    var t = $('#tabs');
+    if (!t) return out.join(' · ');
+    var cs = getComputedStyle(t);
+    out.push(cs.position || '?');
+    var b = Math.round(t.getBoundingClientRect().bottom);
+    var vh = Math.round(window.innerHeight);
+    var d = vh - b;
+    out.push(b + '/' + vh + (Math.abs(d) <= 1 ? ' ✓' : ' ✗' + d));
+    return out.join(' · ');
   }
 
   function syncMsg() {
@@ -1037,6 +1064,29 @@
         if (r.pulled) toast('已拉回 ' + r.pulled + ' 条');
       }).catch(function () { render(); });
     });
+
+    // ★★ 可视区校正（2026-10-17，iPhone 14 Pro 实测后加）
+    //   `position: fixed; bottom: 0` 锚的是**布局视口**。但 iPhone 上 Safari 的
+    //   底部地址栏是**浮在页面之上**的：地址栏露出来时，布局视口底部那 ~50px
+    //   其实被它盖住了 —— 标签栏老老实实贴到了「布局视口」底，看起来却像
+    //   「下方空了一截」（露出来的是画布底色）。
+    //   visualViewport 给的才是**真正看得见**的那块：算出它离布局视口底差多少，
+    //   塞进 --vv-gap，CSS 里 `#tabs { bottom: var(--vv-gap) }` 跟着抬。
+    //   ⚠ 超过 140px 不抬 —— 那是**键盘弹起**（不是地址栏），抬了标签栏会飞到半空。
+    function syncVvGap() {
+      var vv = window.visualViewport;
+      var gap = 0;
+      if (vv) gap = Math.round(window.innerHeight - (vv.offsetTop + vv.height));
+      if (!(gap > 0) || gap > 140) gap = 0;
+      document.documentElement.style.setProperty('--vv-gap', gap + 'px');
+    }
+    syncVvGap();
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', syncVvGap);
+      window.visualViewport.addEventListener('scroll', syncVvGap);
+    }
+    window.addEventListener('orientationchange', syncVvGap);
+    window.addEventListener('resize', syncVvGap);
 
     // 注册 Service Worker（离线可开）
     if ('serviceWorker' in navigator && location.protocol !== 'file:') {

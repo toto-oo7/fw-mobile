@@ -35,6 +35,9 @@
   --tabbar-h: 46px;
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-t: env(safe-area-inset-top, 0px);
+  /* ★ 布局视口底 与 真正看得见的底 之间差多少（px，由 app.js 的 syncVvGap 算）。
+     只在 iPhone Safari 底部地址栏露出时 > 0；主屏 App / 桌面浏览器恒为 0。 */
+  --vv-gap: 0px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -141,7 +144,9 @@ body { display: flex; flex-direction: column; }
      再加一层会在输入框和底栏之间多一条谁都没有的缝。） */
 #main {
   flex: 1 1 auto; overflow-y: auto; -webkit-overflow-scrolling: touch;
-  padding-bottom: calc(var(--tabbar-h) + var(--safe-b));
+  /* 标签栏被 --vv-gap 顶上去之后，它盖住的范围也跟着上移 —— 内容这边同样要补上，
+     否则最后一条会被压在标签栏底下。 */
+  padding-bottom: calc(var(--tabbar-h) + var(--safe-b) + var(--vv-gap, 0px));
 }
 .page { display: none; padding: 0 16px 16px; }
 .page.on { display: block; }
@@ -316,7 +321,11 @@ textarea { resize: none; line-height: 1.55; }
      以及部分 webview）算出来的值会比**实际可视高度**小几十像素，
      标签栏就停在 body 底部，下面露出一截页面底色，看着像「没贴底」。
      `position: fixed; bottom: 0` 锚的是**视口**，跟 body 多高完全无关 → 永远贴底。 */
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+  position: fixed; left: 0; right: 0; z-index: 20;
+  /* ★ `--vv-gap`：iPhone Safari 底部地址栏露出时，布局视口底那一段其实看不见，
+     标签栏要**再往上抬这么多**才真的贴住「看得见的底」（2026-10-17）。
+     没有地址栏（主屏 App、桌面）时它是 0，等价于 `bottom: 0`。 */
+  bottom: var(--vv-gap, 0px);
   display: flex;
   background: color-mix(in srgb, var(--card) 92%, transparent);
   backdrop-filter: saturate(180%) blur(20px);

@@ -242,6 +242,11 @@ body { display: flex; flex-direction: column; }
 .mv:active { opacity: .5; }
 /* 删除类的小按钮用红色 —— 蓝色的 ✕ 看着像「关闭」，容易误点 */
 .mv.del { color: var(--red); }
+/* 「挂到这天」—— 比图标按钮宽，得放得下四个字 */
+.mv.attach {
+  width: auto; height: 28px; padding: 0 10px;
+  font-size: 12.5px; white-space: nowrap;
+}
 
 /* ---------------------------------------------------------------- 输入 */
 

@@ -26,7 +26,7 @@
        ① 这行常量  → 证明 app.js 是新的
        ② #tabs 的 computed position → 证明 app.css 是新的（旧版是 static，v8 起是 fixed）
        ③ 底栏底 / 视口高 → 直接量「到底贴没贴底」，不靠肉眼判断 */
-  var APP_BUILD = 'b8';
+  var APP_BUILD = 'b9';
 
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
@@ -457,6 +457,18 @@
           (gname ? '<div class="sub">' + esc(gname) + '</div>' : '') + '</div></div>';
       });
     }
+    // 已完成、但没记完成日期的（10-17 之前划掉的，或同步时丢了 done_at 的）。
+    // ⚠ 不单独列出来的话，这些条目在**任何一天**的日历上都看不到 —— 等于凭空消失。
+    var und = S.state.todos.filter(function (t) { return t.done && !t.done_at; });
+    if (und.length) {
+      h += '<div class="lbl">已完成 · 未记日期 · ' + und.length + '</div>';
+      und.forEach(function (t) {
+        h += '<div class="row done" data-tid="' + t.id + '">' +
+          '<button class="dot-check on" disabled>✓</button>' +
+          '<div class="grow"><div class="txt">' + esc(t.text) + '</div></div>' +
+          '<button class="mv attach" data-act="attach">挂到这天</button></div>';
+      });
+    }
     $('#daylist', root).innerHTML = h;
   }
 
@@ -748,8 +760,25 @@
 
   // 当天备注弹层里的勾选 / 删除
   $('#sheet-body').addEventListener('click', function (e) {
+    if (!ui.selDay) return;
+
+    // 「已完成 · 未记日期」里的一键挂到当前这天
+    var urow = e.target.closest('.row[data-tid]');
+    if (urow) {
+      var uact = e.target.closest('[data-act]');
+      if (uact && uact.dataset.act === 'attach') {
+        var tid = urow.dataset.tid, dkey = ui.selDay;
+        S.mutate(function (st) {
+          st.todos.forEach(function (t) { if (t.id === tid && t.done) t.done_at = dkey; });
+        });
+        drawDay($('#sheet-body'), dkey);
+        renderCal();
+      }
+      return;
+    }
+
     var row = e.target.closest('.row[data-cid]');
-    if (!row || !ui.selDay) return;
+    if (!row) return;
     var id = row.dataset.cid, key = ui.selDay;
     var act = e.target.closest('[data-act]');
     var a = act ? act.dataset.act : '';
@@ -1026,6 +1055,28 @@
 
   function boot() {
     S.load();
+
+    // ⚠⚠ 一次性数据修补（2026-10-19）：`done_at` 是 2026-10-17 才加上的字段，
+    //   在那之前划掉的条目只有 done:true、没有完成日期 → 日历上**永远不显示**。
+    //   toto 确认「合同拆分」「收据」两项是 10-16 划掉的，按他给的日子补上。
+    //   ⚠ 必须打标记：否则他以后取消勾选（done_at 被清空）会被强行改回 10-16。
+    //   ⚠ 只有真补上了才打标记 —— 首次装 App 时状态还是空的，别把机会用掉。
+    try {
+      if (!localStorage.getItem('fw_fix_done_at_v1')) {
+        var FIX_DONE_AT = { '659fe6b0a4a8': '2026-10-16', '30029138f61f': '2026-10-16' };
+        var nFix = 0;
+        S.mutate(function (st) {
+          st.todos.forEach(function (t) {
+            if (t.done && !t.done_at && FIX_DONE_AT[t.id]) {
+              t.done_at = FIX_DONE_AT[t.id];
+              nFix++;
+            }
+          });
+        });
+        if (nFix) localStorage.setItem('fw_fix_done_at_v1', '1');
+      }
+    } catch (e) { console.warn('[fix] done_at 修补跳过', e); }
+
     applyTheme(S.cfg.theme);
 
     // 从主屏图标的长按菜单进来时可能带着 ?t=cal 这种，先认一下

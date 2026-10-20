@@ -338,11 +338,17 @@ textarea { resize: none; line-height: 1.55; }
      没有地址栏（主屏 App、桌面）时 gap = 0，等价于原来什么都没加。 */
   bottom: 0;
   padding-bottom: var(--vv-gap, 0px);
-  display: flex;
-  background: color-mix(in srgb, var(--card) 92%, transparent);
+  display: flex;  background: color-mix(in srgb, var(--card) 92%, transparent);
   backdrop-filter: saturate(180%) blur(20px);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
   border-top: 1px solid var(--line);
+}
+/* ★ 实色兜底（2026-10-20）：`--vv-gap` 那段 padding 再盖一层不透明底色。
+   为什么：#tabs 的背景是 92% 白 + backdrop-filter，iOS 上偶尔不覆盖 padding 区，
+   会透出 body 的 #F2F2F7 → 又变成一条白/灰带。这层是纯 --card，gap=0 时高度 0。 */
+#tabs::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0;
+  height: var(--vv-gap, 0px); background: var(--card); pointer-events: none;
 }
 #tabs button {
   flex: 1; border: none; background: none; color: var(--text-2);

@@ -31,6 +31,9 @@
     content: ''; position: absolute; left: 0; right: 0; bottom: 0;
     height: var(--vv-gap, 0px); background: var(--card); pointer-events: none;
   }
+  /* ★ 视口**外**那块（Safari 底部工具栏透出的就是它）用卡片色，
+     和标签栏连成一片；body 仍是页面底色，视口内观感不变。 */
+  html { background: var(--card); }
 </style>
 <title>小浮窗</title>
 </head>

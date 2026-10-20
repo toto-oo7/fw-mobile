@@ -80,7 +80,7 @@
   }
 
   // 页面上写死的时间戳 —— 看到它说明这个文件本身就是新的（check.html 从未被缓存过）
-  $('#stamp').textContent = '体检页构建时间：2026-10-20 11:34 · b12';
+  $('#stamp').textContent = '体检页构建时间：2026-10-20 11:45 · b12+实测';
 
   // ① Service Worker 状态
   var swInfo = '不支持';
@@ -119,9 +119,57 @@
               add('index.html 兜底', hasGuard ? '有（!important 内联样式）' : '没有',
                   hasGuard ? 'ok' : 'bad');
               if (!hasGuard) bad++;
-              render();
-            });
+              // ⑤ 最关键的一步：**把主页真的加载进来**，量它自己用的 CSS
+              return probeLive();
+            })
+            .then(render);
         });
+    });
+  }
+
+  // ★ 为什么需要这一步（2026-10-20，toto 连说三轮「还是不行」）：
+  //   前三项测的都是「网络上的文件是哪版」—— 全绿。但 toto 那个主页标签页
+  //   **从头到尾没重新加载过**，内存里跑的仍是旧 CSS，所以照样有白框。
+  //   「文件是新的」和「页面加载的是新文件」是两件事。
+  //   这里用 iframe 真把主页拉起来，注入一个 `--vv-gap` 看它怎么反应：
+  //     · 新版：padding 撑高、背景铺到视口底 → 底边 == iframe 高
+  //     · 旧版：整条被 bottom 抬起 → 底边 == iframe 高 - 50
+  function probeLive() {
+    return new Promise(function (resolve) {
+      var f = document.createElement('iframe');
+      f.style.cssText = 'position:fixed;left:-9999px;top:0;width:390px;height:600px;border:0;';
+      var done = false;
+      function finish(txt, cls) {
+        if (done) return; done = true;
+        try { f.parentNode && f.parentNode.removeChild(f); } catch (e) {}
+        add('主页实测', txt, cls);
+        if (cls === 'bad') bad++;
+        resolve();
+      }
+      f.onload = function () {
+        setTimeout(function () {
+          try {
+            var w = f.contentWindow, d = f.contentDocument;
+            var t = d.querySelector('#tabs');
+            if (!t) return finish('找不到 #tabs', 'bad');
+            d.documentElement.style.setProperty('--vv-gap', '50px');
+            setTimeout(function () {
+              var r = t.getBoundingClientRect();
+              var H = w.innerHeight;
+              var below = Math.round(H - r.bottom);
+              if (below <= 1) {
+                finish('新版 ✓（底边 ' + Math.round(r.bottom) + ' = 视口高 ' + H + '，无缝）', 'ok');
+              } else {
+                finish('★ 旧版（底边 ' + Math.round(r.bottom) + '，视口高 ' + H +
+                       '，下方空 ' + below + 'px）', 'bad');
+              }
+            }, 150);
+          } catch (e) { finish('测不了：' + e.message, 'bad'); }
+        }, 700);
+      };
+      setTimeout(function () { finish('加载超时', 'bad'); }, 6000);
+      f.src = './?probe=' + Date.now();
+      document.body.appendChild(f);
     });
   }
 
@@ -129,12 +177,13 @@
     $('#rows').innerHTML = rows.join('');
     var v = $('#verdict');
     if (bad === 0) {
-      v.innerHTML = '<div class="big ok">✓ 你手机上的文件是新的</div>' +
-        '<div class="why">如果还是看到白框，那就是别的原因 —— 请把这一页截图给我。</div>';
-      $('#fix').textContent = '仍然重新加载一次';
+      v.innerHTML = '<div class="big ok">✓ 文件和页面都是新版</div>' +
+        '<div class="why">那白框应该已经没了。还看得见的话，点下面按钮重新加载一次主页。</div>';
+      $('#fix').textContent = '重新加载主页';
     } else {
-      v.innerHTML = '<div class="big bad">✗ 手机上还在用旧文件</div>' +
-        '<div class="why">点下面的按钮清掉缓存，这是 iOS 上最彻底的办法。</div>';
+      v.innerHTML = '<div class="big bad">✗ 页面里跑的还不是新版</div>' +
+        '<div class="why">点下面的按钮，会清掉缓存并重新加载主页。这是 iOS 上最彻底的办法。</div>';
+      $('#fix').textContent = '重新加载主页（清理缓存）';
     }
   }
 

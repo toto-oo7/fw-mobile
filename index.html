@@ -14,6 +14,17 @@
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="stylesheet" href="app.css">
+<!-- ★★ 底栏兜底（2026-10-20，toto 报「底框又出现白框」）
+     病根：旧版 app.css 写的是 `#tabs { bottom: var(--vv-gap) }` —— 把**整条底栏**抬起来，
+     抬起来之后下面空出 gap 那么高的一截，露出 body 背景 #F2F2F7，
+     而底栏本身是 92% 白 → 看着就是「白条下面垫了一条浅灰」。
+     手机上很可能还缓存着那份旧 CSS（Service Worker / CDN 都可能），
+     所以这里用**内联 + !important** 把新行为钉死：
+       背景永远铺到视口底（bottom:0），`--vv-gap` 只顶里面的图标文字。
+     优先级高于样式表里任何普通声明 —— 旧 CSS 再怎么缓存也盖不掉。 -->
+<style>
+  #tabs { bottom: 0 !important; padding-bottom: var(--vv-gap, 0px) !important; }
+</style>
 <title>小浮窗</title>
 </head>
 <body>

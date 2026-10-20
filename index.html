@@ -24,6 +24,13 @@
      优先级高于样式表里任何普通声明 —— 旧 CSS 再怎么缓存也盖不掉。 -->
 <style>
   #tabs { bottom: 0 !important; padding-bottom: var(--vv-gap, 0px) !important; }
+  /* 再补一层实色盖住 gap 那段：iOS 上 `backdrop-filter` 偶尔不覆盖 padding 区，
+     半透明背景叠上去会透出 body 的浅灰 → 又变成一条白/灰带。
+     这层是不透明的 --card（白/黑），高度 = gap，gap=0 时高度 0、完全无影响。 */
+  #tabs::after {
+    content: ''; position: absolute; left: 0; right: 0; bottom: 0;
+    height: var(--vv-gap, 0px); background: var(--card); pointer-events: none;
+  }
 </style>
 <title>小浮窗</title>
 </head>

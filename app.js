@@ -26,7 +26,7 @@
        ① 这行常量  → 证明 app.js 是新的
        ② #tabs 的 computed position → 证明 app.css 是新的（旧版是 static，v8 起是 fixed）
        ③ 底栏底 / 视口高 → 直接量「到底贴没贴底」，不靠肉眼判断 */
-  var APP_BUILD = 'b10';
+  var APP_BUILD = 'b11';
 
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
@@ -1130,11 +1130,32 @@
     //     ① < 12px 当噪声归零（地址栏最小也有 44px，十几像素的都是滚动抖动）
     //     ② 地址栏动画结束后用 rAF 再采一次，取稳定值
     //     ③ 页面重新可见 / 从缓存恢复时重算（iOS 切后台回来 visualViewport 常是旧值）
+    //   ⚠⚠ 2026-10-20 补：**必须减掉底部安全区**。
+    //     实测 toto 截图里露出的灰带 ≈ 86px，而 iPhone 14 Pro 的地址栏 ≈ 50、
+    //     安全区 = 34 —— 86 = 50 + 34。也就是说 `innerHeight - (offsetTop + height)`
+    //     量到的是「地址栏 + 安全区」，但 `#tabs button` 的
+    //     `height: calc(46px + var(--safe-b))` **已经把安全区算进去了**，
+    //     再抬一遍就是重复 → 标签栏凭空高出一截。减掉才是地址栏的真实高度。
     var vvTimer = 0;
+    var _safeB = -1;
+    function measureSafeB() {
+      if (_safeB >= 0) return _safeB;
+      try {
+        var d = document.createElement('div');
+        d.style.cssText = 'position:fixed;left:0;bottom:0;width:0;height:0;' +
+          'padding-bottom:env(safe-area-inset-bottom,0px);visibility:hidden;pointer-events:none;';
+        document.body.appendChild(d);
+        _safeB = Math.round(d.getBoundingClientRect().height) || 0;
+        document.body.removeChild(d);
+      } catch (e) { _safeB = 0; }
+      return _safeB;
+    }
     function syncVvGap() {
       var vv = window.visualViewport;
       var gap = 0;
-      if (vv) gap = Math.round(window.innerHeight - (vv.offsetTop + vv.height));
+      if (vv) {
+        gap = Math.round(window.innerHeight - (vv.offsetTop + vv.height)) - measureSafeB();
+      }
       if (!(gap >= 12) || gap > 140) gap = 0;
       document.documentElement.style.setProperty('--vv-gap', gap + 'px');
     }
@@ -1145,6 +1166,18 @@
       vvTimer = requestAnimationFrame(function () { vvTimer = requestAnimationFrame(syncVvGap); });
     }
     syncVvGap();
+    // ★★ 兜底：**就算手机上缓存着旧版 app.css，也把底栏钉到视口底**（2026-10-20）
+    //   旧写法是 `#tabs { bottom: var(--vv-gap) }` —— 整条底栏被抬起来，
+    //   下面空出一截露 body 背景（toto 截图里那条 86px 灰带就是这么来的）。
+    //   内联样式优先级高于样式表里的普通声明，所以这两行能直接盖掉旧 CSS 的写法，
+    //   不用等缓存过期 / 用户重装 App。
+    try {
+      var tabsEl = document.getElementById('tabs');
+      if (tabsEl) {
+        tabsEl.style.bottom = '0';
+        tabsEl.style.paddingBottom = 'var(--vv-gap, 0px)';
+      }
+    } catch (e) { /* 老浏览器没有 style 就算了 */ }
     if (window.visualViewport) {
       window.visualViewport.addEventListener('resize', syncVvGapSoon);
       window.visualViewport.addEventListener('scroll', syncVvGapSoon);

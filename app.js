@@ -26,7 +26,7 @@
        ① 这行常量  → 证明 app.js 是新的
        ② #tabs 的 computed position → 证明 app.css 是新的（旧版是 static，v8 起是 fixed）
        ③ 底栏底 / 视口高 → 直接量「到底贴没贴底」，不靠肉眼判断 */
-  var APP_BUILD = 'b9';
+  var APP_BUILD = 'b10';
 
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
@@ -1124,20 +1124,37 @@
     //   visualViewport 给的才是**真正看得见**的那块：算出它离布局视口底差多少，
     //   塞进 --vv-gap，CSS 里 `#tabs { bottom: var(--vv-gap) }` 跟着抬。
     //   ⚠ 超过 140px 不抬 —— 那是**键盘弹起**（不是地址栏），抬了标签栏会飞到半空。
+    //   ★ 2026-10-20：`--vv-gap` 现在只顶**内容**（`#tabs` 的 padding-bottom），
+    //     标签栏白底始终铺到视口底 —— 所以这里算错了也不会再露白框，
+    //     最多是图标文字上下挪一点。顺手加了三条降噪：
+    //     ① < 12px 当噪声归零（地址栏最小也有 44px，十几像素的都是滚动抖动）
+    //     ② 地址栏动画结束后用 rAF 再采一次，取稳定值
+    //     ③ 页面重新可见 / 从缓存恢复时重算（iOS 切后台回来 visualViewport 常是旧值）
+    var vvTimer = 0;
     function syncVvGap() {
       var vv = window.visualViewport;
       var gap = 0;
       if (vv) gap = Math.round(window.innerHeight - (vv.offsetTop + vv.height));
-      if (!(gap > 0) || gap > 140) gap = 0;
+      if (!(gap >= 12) || gap > 140) gap = 0;
       document.documentElement.style.setProperty('--vv-gap', gap + 'px');
+    }
+    function syncVvGapSoon() {
+      syncVvGap();
+      if (vvTimer) cancelAnimationFrame(vvTimer);
+      // 地址栏收起/展开有 ~250ms 动画，动画中途量到的是中间值 → 结束后再量一次
+      vvTimer = requestAnimationFrame(function () { vvTimer = requestAnimationFrame(syncVvGap); });
     }
     syncVvGap();
     if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', syncVvGap);
-      window.visualViewport.addEventListener('scroll', syncVvGap);
+      window.visualViewport.addEventListener('resize', syncVvGapSoon);
+      window.visualViewport.addEventListener('scroll', syncVvGapSoon);
     }
-    window.addEventListener('orientationchange', syncVvGap);
-    window.addEventListener('resize', syncVvGap);
+    window.addEventListener('orientationchange', syncVvGapSoon);
+    window.addEventListener('resize', syncVvGapSoon);
+    window.addEventListener('pageshow', syncVvGapSoon);
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden) syncVvGapSoon();
+    });
 
     // 注册 Service Worker（离线可开）
     if ('serviceWorker' in navigator && location.protocol !== 'file:') {

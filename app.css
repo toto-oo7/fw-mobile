@@ -82,9 +82,20 @@ html[data-theme="dark"] {
    用 !important 把它按回去。 */
 [hidden] { display: none !important; }
 
+/* ★★★ 2026-10-20（toto：体检页显示"好了"，但主页底下还是有一条）：
+   `html` 的 background 才是**视口外**那块区域的颜色。
+   iOS Safari 的底部工具栏是浮在页面之上的半透明层，它透出的是「布局视口之外」的
+   渲染结果 —— 也就是 `html` 的背景。原来 `html, body` 都写 `--bg`(#F2F2F7)，
+   于是工具栏那一条永远浅灰，看着就像「底栏没贴底、下面垫了一块」。
+   现在：`html` 用 `--card`（浅色=白 / 深色=#1C1C1E），`body` 仍是 `--bg`。
+     · 视口内 → 看 body（页面正常底色）
+     · 工具栏/安全区那块 → 透出 html 的卡片色 → 和标签栏连成一片，无缝
+   主屏 App（没有工具栏）视口就等于屏幕，body 铺满，这条完全不起作用。 */
+html { background: var(--card); }
+
 html, body {
   margin: 0; padding: 0; height: 100%;
-  background: var(--bg); color: var(--text);
+  color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC",
                "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   font-size: 16px; line-height: 1.45;
@@ -104,7 +115,7 @@ html, body {
   html, body { min-height: 100dvh; }
 }
 
-body { display: flex; flex-direction: column; }
+body { display: flex; flex-direction: column; background: var(--bg); }
 
 /* ---------------------------------------------------------------- 顶栏 */
 

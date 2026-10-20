@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#F2F2F7">
+<title>小浮窗 · 版本体检</title>
+<style>
+  :root {
+    --bg: #F2F2F7; --card: #FFFFFF; --text: #000; --text2: #8E8E93;
+    --line: rgba(60,60,67,.16); --ok: #34C759; --bad: #FF3B30; --warn: #FF9500;
+    --accent: #007AFF;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#000; --card:#1C1C1E; --text:#fff; --text2:#98989D;
+            --line: rgba(84,84,88,.6); --ok:#30D158; --bad:#FF453A; --warn:#FF9F0A;
+            --accent:#0A84FF; }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0; padding: calc(env(safe-area-inset-top,0px) + 20px) 16px
+                     calc(env(safe-area-inset-bottom,0px) + 24px);
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased;
+  }
+  h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: -.3px; }
+  .sub { color: var(--text2); font-size: 13px; margin-bottom: 18px; }
+  .verdict {
+    background: var(--card); border-radius: 14px; padding: 18px 16px;
+    margin-bottom: 14px; border: 1px solid var(--line);
+  }
+  .verdict .big { font-size: 19px; font-weight: 700; margin-bottom: 6px; }
+  .verdict .why { font-size: 13.5px; color: var(--text2); }
+  .ok { color: var(--ok); } .bad { color: var(--bad); } .warn { color: var(--warn); }
+  table { width: 100%; border-collapse: collapse; background: var(--card);
+          border-radius: 14px; overflow: hidden; font-size: 14px; }
+  td { padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  td:first-child { color: var(--text2); width: 42%; }
+  td:last-child { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 13px;
+                  word-break: break-all; }
+  button {
+    width: 100%; margin-top: 18px; padding: 16px; border: none; border-radius: 14px;
+    background: var(--bad); color: #fff; font-size: 17px; font-weight: 600;
+    font-family: inherit; cursor: pointer;
+  }
+  button:active { opacity: .8; }
+  button.plain { background: var(--accent); margin-top: 10px; }
+  .foot { margin-top: 16px; font-size: 12px; color: var(--text2); text-align: center; }
+</style>
+</head>
+<body>
+
+<h1>版本体检</h1>
+<div class="sub" id="stamp">正在检查…</div>
+
+<div class="verdict" id="verdict">
+  <div class="big">检查中…</div>
+  <div class="why">读取 Service Worker、缓存和线上文件</div>
+</div>
+
+<table id="rows"></table>
+
+<button id="fix">一键清理缓存并重新加载</button>
+<button class="plain" id="back">先回主页看看</button>
+
+<div class="foot">
+  清理只删缓存和 Service Worker，<b>不碰你的待办数据</b>。
+</div>
+
+<script>
+(function () {
+  var $ = function (s) { return document.querySelector(s); };
+  var rows = [], bad = 0, warn = 0;
+
+  function add(k, v, cls) {
+    rows.push('<tr><td>' + k + '</td><td class="' + (cls || '') + '">' + v + '</td></tr>');
+  }
+
+  // 页面上写死的时间戳 —— 看到它说明这个文件本身就是新的（check.html 从未被缓存过）
+  $('#stamp').textContent = '体检页构建时间：2026-10-20 11:34 · b12';
+
+  // ① Service Worker 状态
+  var swInfo = '不支持';
+  var regs = [];
+  function afterSW() {
+    var swLine = regs.length
+      ? regs.map(function (r) {
+          var w = r.active || r.waiting || r.installing;
+          return (r.scope.replace(location.origin, '')) + ' ← ' + (w ? w.state : '无');
+        }).join('；')
+      : '没有注册';
+    add('Service Worker', swLine, regs.length ? 'warn' : 'ok');
+
+    // ② 缓存名
+    return caches.keys().then(function (keys) {
+      add('缓存名', keys.length ? keys.join('、') : '（空）', '');
+      // 缓存名只作参考，**不当判据** —— 它证明不了页面加载的是哪版文件（见 MEMORY）。
+
+      // ③ 线上 app.css 到底是不是新版
+      return fetch('./app.css?probe=' + Date.now(), { cache: 'no-store' })
+        .then(function (r) { return r.text(); })
+        .then(function (css) {
+          var isNew = css.indexOf('padding-bottom: var(--vv-gap') >= 0;
+          var isOld = /#tabs\s*\{[^}]*bottom:\s*var\(--vv-gap/.test(css);
+          add('app.css 版本',
+            isNew ? '新版（bottom:0 + padding-bottom）'
+                  : (isOld ? '★ 旧版（bottom: var(--vv-gap) 整条抬起）' : '未知'),
+            isNew ? 'ok' : 'bad');
+          if (!isNew) bad++;
+
+          // ④ index.html 里有没有兜底样式
+          return fetch('./index.html?probe=' + Date.now(), { cache: 'no-store' })
+            .then(function (r) { return r.text(); })
+            .then(function (html) {
+              var hasGuard = html.indexOf('padding-bottom: var(--vv-gap, 0px) !important') >= 0;
+              add('index.html 兜底', hasGuard ? '有（!important 内联样式）' : '没有',
+                  hasGuard ? 'ok' : 'bad');
+              if (!hasGuard) bad++;
+              render();
+            });
+        });
+    });
+  }
+
+  function render() {
+    $('#rows').innerHTML = rows.join('');
+    var v = $('#verdict');
+    if (bad === 0) {
+      v.innerHTML = '<div class="big ok">✓ 你手机上的文件是新的</div>' +
+        '<div class="why">如果还是看到白框，那就是别的原因 —— 请把这一页截图给我。</div>';
+      $('#fix').textContent = '仍然重新加载一次';
+    } else {
+      v.innerHTML = '<div class="big bad">✗ 手机上还在用旧文件</div>' +
+        '<div class="why">点下面的按钮清掉缓存，这是 iOS 上最彻底的办法。</div>';
+    }
+  }
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(function (rs) {
+      regs = rs;
+      afterSW().catch(function (e) { add('检查出错', String(e), 'bad'); render(); });
+    }).catch(function () { afterSW().catch(function () {}); });
+  } else {
+    afterSW().catch(function () {});
+  }
+
+  // 一键清理：注销 SW + 删缓存 + 带随机参数跳回主页
+  $('#fix').addEventListener('click', function () {
+    var btn = this;
+    btn.disabled = true;
+    btn.textContent = '清理中…';
+    var jobs = [];
+    if ('serviceWorker' in navigator) {
+      jobs.push(navigator.serviceWorker.getRegistrations().then(function (rs) {
+        return Promise.all(rs.map(function (r) { return r.unregister(); }));
+      }));
+    }
+    jobs.push(caches.keys().then(function (keys) {
+      return Promise.all(keys.map(function (k) { return caches.delete(k); }));
+    }));
+    Promise.all(jobs).then(function () {
+      btn.textContent = '清理完了，正在重新加载…';
+      location.replace('./?fresh=' + Date.now());
+    }).catch(function (e) {
+      btn.disabled = false;
+      btn.textContent = '清理失败：' + e.message;
+    });
+  });
+
+  $('#back').addEventListener('click', function () {
+    location.href = './';
+  });
+})();
+</script>
+</body>
+</html>

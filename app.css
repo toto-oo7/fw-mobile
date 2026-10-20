@@ -327,10 +327,17 @@ textarea { resize: none; line-height: 1.55; }
      标签栏就停在 body 底部，下面露出一截页面底色，看着像「没贴底」。
      `position: fixed; bottom: 0` 锚的是**视口**，跟 body 多高完全无关 → 永远贴底。 */
   position: fixed; left: 0; right: 0; z-index: 20;
-  /* ★ `--vv-gap`：iPhone Safari 底部地址栏露出时，布局视口底那一段其实看不见，
-     标签栏要**再往上抬这么多**才真的贴住「看得见的底」（2026-10-17）。
-     没有地址栏（主屏 App、桌面）时它是 0，等价于 `bottom: 0`。 */
-  bottom: var(--vv-gap, 0px);
+  /* ★★ 2026-10-20 改：**底边永远钉在视口底**，`--vv-gap` 改成往上顶内容的 padding。
+     为什么（toto 报「底框又出现白框」）：
+       10-17 的写法是 `bottom: var(--vv-gap)`，把**整条标签栏**抬起来 ——
+       抬起来之后它下面那 `--vv-gap` 高度就空着，露出的是 body 背景 #F2F2F7。
+       而标签栏本身是 92% 白，于是「白条下面又垫一条浅灰」= 看着像白框没贴底。
+       现在改成 `bottom: 0` + `padding-bottom: var(--vv-gap)`：
+       白底**一直铺到视口最底**（视觉上永远贴底、不留缝），
+       只有里面的「图标 + 文字」被这段 padding 顶到地址栏上方（照样不被盖住）。
+     没有地址栏（主屏 App、桌面）时 gap = 0，等价于原来什么都没加。 */
+  bottom: 0;
+  padding-bottom: var(--vv-gap, 0px);
   display: flex;
   background: color-mix(in srgb, var(--card) 92%, transparent);
   backdrop-filter: saturate(180%) blur(20px);

@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -43,7 +43,7 @@
 <body>
 
 <header id="hdr">
-  <div id="hdr-title">待办<span id="hdr-sub"></span></div>
+  <h1 id="hdr-title" style="margin:0">待办<span id="hdr-sub"></span></h1>
   <div id="dot" title="同步状态"></div>
   <button class="hbtn" id="hdr-act" hidden></button>
 </header>
@@ -56,7 +56,7 @@
     <div id="todo-list"></div>
     <div class="composer">
       <select id="todo-group" aria-label="加到哪个分组"></select>
-      <input type="text" id="todo-inp" placeholder="加一条…" autocomplete="off"
+      <input type="text" id="todo-inp" aria-label="新待办内容" placeholder="加一条…" autocomplete="off"
              autocorrect="off" autocapitalize="off" enterkeyhint="next">
       <button class="addbtn" id="todo-add" aria-label="添加">＋</button>
     </div>
@@ -76,7 +76,7 @@
   <!-- ------------------------------------------------------------ 备忘 -->
   <section class="page" id="p-memo">
     <div class="card" style="padding:10px">
-      <textarea id="memo" rows="14" placeholder="随手记点什么…"></textarea>
+      <textarea id="memo" aria-label="备忘录内容" rows="14" placeholder="随手记点什么…"></textarea>
     </div>
     <div class="hint" id="memo-info"></div>
   </section>
@@ -101,8 +101,12 @@
 </nav>
 
 <div id="scrim"></div>
-<div id="sheet"><div class="grab"></div><div id="sheet-body"></div></div>
-<div id="toast"></div>
+<div id="sheet" role="dialog" aria-modal="true" aria-hidden="true" tabindex="-1" inert>
+  <div class="grab"></div>
+  <button id="sheet-close" aria-label="关闭弹窗"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+  <div id="sheet-body"></div>
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
 
 <script src="records.js"></script>
 <script src="gist.js"></script>

@@ -26,7 +26,7 @@
        ① 这行常量  → 证明 app.js 是新的
        ② #tabs 的 computed position → 证明 app.css 是新的（旧版是 static，v8 起是 fixed）
        ③ 底栏底 / 视口高 → 直接量「到底贴没贴底」，不靠肉眼判断 */
-  var APP_BUILD = 'b17';
+  var APP_BUILD = 'b18';
 
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
@@ -69,20 +69,44 @@
 
   function openSheet(html, onMount) {
     var sh = $('#sheet');
+    var previousFocus = document.activeElement;
     $('#sheet-body').innerHTML = html;
+    var heading = $('#sheet-body h3');
+    sh.setAttribute('aria-label', heading ? heading.textContent : '编辑内容');
+    sh.removeAttribute('aria-hidden');
+    sh.inert = false;
     sh.classList.add('on');
     $('#scrim').classList.add('on');
     sheetClose = function () {
       sh.classList.remove('on');
       $('#scrim').classList.remove('on');
+      sh.setAttribute('aria-hidden', 'true');
+      sh.inert = true;
       sheetClose = null;
+      if (previousFocus && previousFocus.isConnected) previousFocus.focus({ preventScroll: true });
     };
     if (onMount) onMount($('#sheet-body'));
+    sh.focus({ preventScroll: true });
   }
 
   function closeSheet() { if (sheetClose) sheetClose(); }
 
   $('#scrim').addEventListener('click', closeSheet);
+  $('#sheet-close').addEventListener('click', closeSheet);
+  document.addEventListener('keydown', function (e) {
+    if (!sheetClose) return;
+    if (e.key === 'Escape') { e.preventDefault(); closeSheet(); return; }
+    if (e.key !== 'Tab') return;
+    var controls = $$('#sheet button, #sheet input, #sheet textarea, #sheet select, #sheet a[href]')
+      .filter(function (x) { return !x.disabled && x.getClientRects().length; });
+    if (!controls.length) { e.preventDefault(); return; }
+    var first = controls[0], last = controls[controls.length - 1];
+    if (e.shiftKey && (document.activeElement === first || document.activeElement === $('#sheet'))) {
+      e.preventDefault(); last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault(); first.focus();
+    }
+  });
 
   /* ------------------------------------------------- 备忘录：HTML ↔ 纯文本 */
 
@@ -189,13 +213,16 @@
    */
   function plan() {
     var st = S.state;
-    var gids = {};
-    st.groups.forEach(function (g) { gids[g.id] = true; });
+    var buckets = Object.create(null), loose = [];
+    st.groups.forEach(function (g) { buckets[g.id] = []; });
+    st.todos.forEach(function (t) {
+      if (buckets[t.group]) buckets[t.group].push(t);
+      else loose.push(t);
+    });
     var out = st.groups.map(function (g) {
-      var items = st.todos.filter(function (t) { return t.group === g.id; });
+      var items = buckets[g.id];
       return { g: g, items: items, done: items.filter(function (t) { return t.done; }).length };
     });
-    var loose = st.todos.filter(function (t) { return !t.group || !gids[t.group]; });
     return {
       groups: out, loose: loose, hasGroups: st.groups.length > 0,
       looseDone: loose.filter(function (t) { return t.done; }).length
@@ -209,7 +236,33 @@
 
   /* ---------------------------------------------------------------- 渲染 */
 
+  var renderFrame = 0;
+  function scheduleRender() {
+    if (renderFrame) return;
+    renderFrame = requestAnimationFrame(function () { renderFrame = 0; render(); });
+  }
+
+  function updateHTML(el, html) {
+    if (el._renderedHTML === html) return;
+    var focused = document.activeElement;
+    var scope = focused && el.contains(focused) ? focused.closest('[data-id], .ghead, [data-day]') : null;
+    var scopeKey = scope ? (scope.dataset.id || scope.dataset.gid || scope.dataset.day || 'loose') : null;
+    var roleClass = scope ? (focused.classList.contains('dot-check') ? '.dot-check' :
+      focused.classList.contains('todo-edit') ? '.todo-edit' :
+      focused.classList.contains('group-toggle') ? '.group-toggle' : focused.dataset.day ? 'self' : '') : '';
+    el.innerHTML = html;
+    el._renderedHTML = html;
+    if (roleClass) {
+      var nextScope = $$('[data-id], .ghead, [data-day]', el).find(function (x) {
+        return (x.dataset.id || x.dataset.gid || x.dataset.day || 'loose') === scopeKey;
+      });
+      var nextFocus = nextScope && (roleClass === 'self' ? nextScope : $(roleClass, nextScope));
+      if (nextFocus) nextFocus.focus({ preventScroll: true });
+    }
+  }
+
   function render() {
+    if (renderFrame) { cancelAnimationFrame(renderFrame); renderFrame = 0; }
     renderHeader();
     if (ui.tab === 'todo') renderTodo();
     else if (ui.tab === 'cal') renderCal();
@@ -225,7 +278,7 @@
       var n = S.state.todos.filter(function (t) { return !t.done; }).length;
       sub = n ? '剩 ' + n + ' 条' : '';
     }
-    $('#hdr-sub').textContent = sub ? '　' + sub : '';
+    $('#hdr-sub').textContent = sub;
 
     var act = $('#hdr-act');
     if (ui.tab === 'todo') {
@@ -257,12 +310,13 @@
 
   function todoRow(t) {
     var h = '<div class="row tap' + (t.done ? ' done' : '') + '" data-id="' + t.id + '">';
-    h += '<button class="dot-check' + (t.done ? ' on' : '') + '" data-act="toggle">✓</button>';
-    h += '<div class="grow"><div class="txt">' + esc(t.text) + '</div></div>';
+    h += '<button class="dot-check' + (t.done ? ' on' : '') + '" data-act="toggle" aria-pressed="' + !!t.done +
+      '" aria-label="' + esc((t.done ? '取消完成：' : '完成：') + t.text) + '">✓</button>';
+    h += '<button class="grow todo-edit" aria-label="' + esc('编辑：' + t.text) + '"><span class="txt">' + esc(t.text) + '</span></button>';
     h += '<span class="star s' + (t.star || 0) + '">' + stars(t.star) + '</span>';
     if (ui.sortMode) {
-      h += '<button class="mv" data-act="up">▲</button>';
-      h += '<button class="mv" data-act="dn">▼</button>';
+      h += '<button class="mv" data-act="up" aria-label="上移">▲</button>';
+      h += '<button class="mv" data-act="dn" aria-label="下移">▼</button>';
     }
     return h + '</div>';
   }
@@ -275,7 +329,7 @@
       '<div class="grow"></div>' +
       '<button class="hbtn muted" data-act="newgroup">＋ 新建分组</button>' +
       '</div>';
-    $('#todo-tools').innerHTML = tools;
+    updateHTML($('#todo-tools'), tools);
 
     // 新建时加到哪个分组 —— 记住上次选的，不用每次重挑
     var sel = $('#todo-group');
@@ -304,10 +358,11 @@
       p.groups.forEach(function (grp) {
         h += '<div class="card gcard">' +
           '<div class="ghead" data-gid="' + grp.g.id + '" data-act="fold">' +
-          '<span class="tri">' + (grp.g.collapsed ? '▶' : '▼') + '</span>' +
-          '<span class="gname">' + esc(grp.g.name || '未命名分组') + '</span>' +
+          '<button class="group-toggle" aria-expanded="' + !grp.g.collapsed + '">' +
+          '<svg class="tri' + (grp.g.collapsed ? ' folded' : '') + '" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg>' +
+          '<span class="gname">' + esc(grp.g.name || '未命名分组') + '</span></button>' +
           '<span class="gcount">' + grp.done + '/' + grp.items.length + '</span>' +
-          '<button class="mv" data-act="gedit" style="width:26px;height:26px">⋯</button>' +
+          '<button class="mv group-menu" data-act="gedit" aria-label="' + esc('编辑分组：' + grp.g.name) + '">⋯</button>' +
           '</div>';
         if (!grp.g.collapsed) {
           var its = visible(grp.items);
@@ -320,8 +375,9 @@
       });
       h += '<div class="card gcard">' +
         '<div class="ghead" data-act="fold-loose">' +
-        '<span class="tri">' + (S.state.loose_collapsed ? '▶' : '▼') + '</span>' +
-        '<span class="gname">未分组</span>' +
+        '<button class="group-toggle" aria-expanded="' + !S.state.loose_collapsed + '">' +
+        '<svg class="tri' + (S.state.loose_collapsed ? ' folded' : '') + '" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg>' +
+        '<span class="gname">未分组</span></button>' +
         '<span class="gcount">' + p.looseDone + '/' + p.loose.length + '</span></div>';
       if (!S.state.loose_collapsed) {
         var ls = visible(p.loose);
@@ -332,7 +388,7 @@
       }
       h += '</div>';
     }
-    $('#todo-list').innerHTML = h;
+    updateHTML($('#todo-list'), h);
   }
 
   /** 在同组内上下移动一条待办。⚠ 组内相对顺序才是有效信息。 */
@@ -428,16 +484,19 @@
       var out = d.getMonth() !== ui.calM;
       var n = (S.state.cal[k] || []).length;
       var cls = 'd' + (out ? ' out' : '') + (k === tkey ? ' today' : '') + (k === ui.selDay ? ' sel' : '');
-      h += '<div class="' + cls + '" data-day="' + k + '">' + d.getDate() +
+      var label = k + (n ? '，备注 ' + n + ' 条' : '') + (finMap[k] ? '，划掉 ' + finMap[k] + ' 项' : '');
+      h += '<button class="' + cls + '" data-day="' + k + '" aria-label="' + label +
+        '" aria-pressed="' + (k === ui.selDay) + '"' + (k === tkey ? ' aria-current="date"' : '') + '>' + d.getDate() +
         (n ? '<span class="pd"></span>' : '') +
-        (finMap[k] ? '<span class="fd"></span>' : '') + '</div>';
+        (finMap[k] ? '<span class="fd"></span>' : '') + '</button>';
     }
-    $('#calgrid').innerHTML = h;
+    updateHTML($('#calgrid'), h);
 
-    var total = Object.keys(S.state.cal).filter(function (x) { return (S.state.cal[x] || []).length; }).length;
+    var monthPrefix = ui.calY + '-' + pad2(ui.calM + 1);
+    var total = Object.keys(S.state.cal).filter(function (x) { return x.slice(0, 7) === monthPrefix && (S.state.cal[x] || []).length; }).length;
     $('#cal-hint').textContent = total
-      ? '本月及附近共 ' + total + ' 天有记录，点日期看当天内容。'
-      : '还没有任何日期备注，点日期就能加。';
+      ? '本月 ' + total + ' 天有备注，点日期查看或添加。'
+      : '本月还没有备注，点日期就能添加。';
   }
 
   function openDay(key) {
@@ -448,7 +507,7 @@
     openSheet(
       '<h3>' + title + '</h3><div id="daylist"></div>' +
       '<div class="lbl">加一条</div>' +
-      '<div style="display:flex;gap:8px"><input type="text" id="day-inp" placeholder="当天要做什么…" ' +
+      '<div style="display:flex;gap:8px"><input type="text" id="day-inp" aria-label="当天备注内容" placeholder="当天要做什么…" ' +
       'autocomplete="off" enterkeyhint="done"><button class="addbtn" id="day-add">＋</button></div>',
       function (root) {
         drawDay(root, key);
@@ -687,7 +746,10 @@
   function switchTab(name) {
     if (!/^(todo|cal|memo|set)$/.test(name)) return;
     ui.tab = name;
-    $$('#tabs button').forEach(function (x) { x.classList.toggle('on', x.dataset.tab === name); });
+    $$('#tabs button').forEach(function (x) {
+      x.classList.toggle('on', x.dataset.tab === name);
+      x.setAttribute('aria-current', x.dataset.tab === name ? 'page' : 'false');
+    });
     $$('.page').forEach(function (p) { p.classList.toggle('on', p.id === 'p-' + name); });
     if (name === 'memo') ui.memoFocus = false;
     render();
@@ -893,12 +955,13 @@
     }).join('');
     openSheet(
       '<h3>编辑待办</h3>' +
-      '<input type="text" id="e-text" value="' + esc(t.text) + '">' +
-      '<div class="lbl">分组</div><select id="e-group">' + opts + '</select>' +
+      '<input type="text" id="e-text" aria-label="待办内容" value="' + esc(t.text) + '">' +
+      '<label class="lbl" for="e-group">分组</label><select id="e-group">' + opts + '</select>' +
       '<div class="lbl">重要程度</div>' +
       '<div style="display:flex;gap:8px">' +
       [0, 1, 2, 3].map(function (n) {
-        return '<button class="btn' + (n === (t.star || 0) ? '' : ' ghost') + '" data-star="' + n + '">' +
+        return '<button class="btn' + (n === (t.star || 0) ? '' : ' ghost') + '" data-star="' + n +
+          '" aria-label="' + ['普通', '重要', '很重要', '紧急'][n] + '">' +
           stars(n) + '</button>';
       }).join('') + '</div>' +
       '<div style="height:16px"></div>' +
@@ -1160,7 +1223,7 @@
     var wantTab = q0 && q0.get('t');
     if (wantTab) switchTab(wantTab);
 
-    S.subscribe(function () { /* 状态变化时只重画当前页，避免输入框失焦 */ if (!ui.memoFocus) render(); });
+    S.subscribe(function () { if (!ui.memoFocus) scheduleRender(); });
 
     // ⚠ 启动时顺手验一次 Token（把登录名取回来显示）。失败不弹错 ——
     //   手机可能只是暂时没网，等真去同步时再报。

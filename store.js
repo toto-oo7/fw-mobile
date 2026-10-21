@@ -26,7 +26,8 @@
   var DEFAULT_CFG = {
     syncOn: false,
     theme: 'auto',              // auto | light | dark
-    showDone: true              // 待办里是否显示已完成
+    showDone: true,             // 待办里是否显示已完成
+    lastBackupAt: ''            // 最近一次成功导出 / 分享备份的时间
   };
 
   /**

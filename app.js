@@ -26,7 +26,7 @@
        ① 这行常量  → 证明 app.js 是新的
        ② #tabs 的 computed position → 证明 app.css 是新的（旧版是 static，v8 起是 fixed）
        ③ 底栏底 / 视口高 → 直接量「到底贴没贴底」，不靠肉眼判断 */
-  var APP_BUILD = 'b15';
+  var APP_BUILD = 'b16';
 
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
@@ -359,12 +359,41 @@
 
   function addTodo(text) {
     text = (text || '').trim();
-    if (!text) return;
+    if (!text) {
+      toast('先写一点内容');
+      return false;
+    }
     S.mutate(function (st) {
       st.todos.push({
         id: R.newId(), text: text, done: false, star: 0,
         group: ui.newTodoGroup || '', done_at: ''
       });
+    });
+    return true;
+  }
+
+  /** 清掉历史版本或电脑端意外写入的空白待办。 */
+  function removeBlankTodos() {
+    var count = S.state.todos.filter(function (t) {
+      return !String(t.text || '').trim();
+    }).length;
+    if (!count) return 0;
+    S.mutate(function (st) {
+      st.todos = st.todos.filter(function (t) { return String(t.text || '').trim(); });
+    });
+    return count;
+  }
+
+  /** 快速连续新增：成功后清空输入框，但始终保留键盘和光标。 */
+  function submitQuickTodo(inp) {
+    if (!addTodo(inp.value)) {
+      inp.focus();
+      return;
+    }
+    inp.value = '';
+    try { inp.focus({ preventScroll: true }); } catch (e) { inp.focus(); }
+    requestAnimationFrame(function () {
+      try { inp.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) {}
     });
   }
 
@@ -581,8 +610,9 @@
 
     // ---- 数据
     h += '<div class="sec-t">数据</div><div class="card">';
-    h += '<div class="row tap" data-act="export"><div class="grow"><div class="txt">导出备份</div>' +
-      '<div class="sub">存成一个 JSON 文件，可随时导入回来</div></div><span class="chev">›</span></div>';
+    h += '<div class="row tap" data-act="export"><div class="grow"><div class="txt">导出 / 分享备份</div>' +
+      '<div class="sub">' + (cfg.lastBackupAt ? ('上次备份：' + esc(cfg.lastBackupAt)) : '存到“文件”或发给自己，可随时恢复') +
+      '</div></div><span class="chev">›</span></div>';
     h += '<div class="row tap" data-act="import"><div class="grow"><div class="txt">从文件导入</div>' +
       '<div class="sub warn">会覆盖当前全部内容</div></div><span class="chev">›</span></div>';
     h += '<div class="row tap" data-act="wipe"><div class="grow"><div class="txt err">清空本机数据</div>' +
@@ -731,18 +761,12 @@
   });
 
   $('#todo-add').addEventListener('click', function () {
-    var inp = $('#todo-inp');
-    addTodo(inp.value);
-    inp.value = '';
-    inp.focus();
-    render();
+    submitQuickTodo($('#todo-inp'));
   });
   $('#todo-inp').addEventListener('keydown', function (e) {
     if (e.key === 'Enter') {
       e.preventDefault();
-      addTodo(this.value);
-      this.value = '';
-      render();
+      submitQuickTodo(this);
     }
   });
   $('#todo-group').addEventListener('change', function () {
@@ -1008,8 +1032,10 @@
     //   两处都判的话，失败原因就只进了 toast、进不了 `Store.status`，
     //   于是设置页那行状态还停在「还没同步过」——界面和状态对不上。
     S.sync().then(function (r) {
+      var removed = removeBlankTodos();
       render();
-      toast(r.pulled ? ('同步完成 · 拉回 ' + r.pulled + ' 条') : '同步完成 · 没有新东西');
+      toast(removed ? ('已清理 ' + removed + ' 条空白任务') :
+        (r.pulled ? ('同步完成 · 拉回 ' + r.pulled + ' 条') : '同步完成 · 没有新东西'));
     }).catch(function (e) {
       render();
       toast('同步失败：' + e.message, 5000);
@@ -1017,13 +1043,38 @@
   }
 
   function doExport() {
-    var blob = new Blob([S.exportJson()], { type: 'application/json' });
+    var name = '小浮窗备份 ' + R.stamp().replace(/[: ]/g, '-') + '.json';
+    var json = S.exportJson();
+    var blob = new Blob([json], { type: 'application/json' });
+    var file = null;
+    try { file = new File([json], name, { type: 'application/json' }); } catch (e) {}
+
+    // iPhone / iPad 优先打开系统分享面板，可直接“存储到文件”或发给自己。
+    if (file && navigator.share && navigator.canShare) {
+      try {
+        if (navigator.canShare({ files: [file] })) {
+          navigator.share({ files: [file], title: '小浮窗数据备份' }).then(function () {
+            S.saveCfg({ lastBackupAt: R.stamp() });
+            toast('备份已分享');
+          }).catch(function (e) {
+            if (e && e.name === 'AbortError') return;
+            downloadBackup(blob, name);
+          });
+          return;
+        }
+      } catch (e) { /* 不支持文件分享时走普通下载 */ }
+    }
+    downloadBackup(blob, name);
+  }
+
+  function downloadBackup(blob, name) {
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = '小浮窗备份 ' + R.stamp().replace(/[: ]/g, '-') + '.json';
+    a.download = name;
     document.body.appendChild(a); a.click();
     setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
-    toast('已导出');
+    S.saveCfg({ lastBackupAt: R.stamp() });
+    toast('备份已保存');
   }
 
   function doImport() {
@@ -1035,8 +1086,22 @@
       var rd = new FileReader();
       rd.onload = function () {
         try {
-          S.importJson(String(rd.result));
-          render(); toast('已导入');
+          var text = String(rd.result);
+          var doc = JSON.parse(text);
+          var raw = doc && doc.state ? doc.state : doc;
+          if (!raw || !Array.isArray(raw.todos) || !Array.isArray(raw.groups) ||
+              !raw.cal || typeof raw.cal !== 'object') {
+            throw new Error('不是有效的小浮窗备份文件');
+          }
+          var preview = R.normalizeState(raw);
+          var dayCount = Object.keys(preview.cal).length;
+          var detail = '文件：' + esc(f.name) + '<br>待办 ' + preview.todos.length +
+            ' 条，分组 ' + preview.groups.length + ' 个，日历 ' + dayCount +
+            ' 天。导入后会覆盖当前全部内容。';
+          confirmSheet('确认导入备份', detail, '导入并覆盖', function () {
+            S.importJson(text);
+            closeSheet(); render(); toast('备份已恢复');
+          });
         } catch (e) { toast('导入失败：' + e.message, 4000); }
       };
       rd.readAsText(f);
@@ -1058,6 +1123,7 @@
 
   function boot() {
     S.load();
+    var removedBlankTodos = removeBlankTodos();
 
     // ⚠⚠ 一次性数据修补（2026-10-19）：`done_at` 是 2026-10-17 才加上的字段，
     //   在那之前划掉的条目只有 done:true、没有完成日期 → 日历上**永远不显示**。
@@ -1104,11 +1170,14 @@
     }
 
     render();
+    if (removedBlankTodos) toast('已清理 ' + removedBlankTodos + ' 条空白任务');
     if (S.cfg.syncOn && GH.isSignedIn()) {
       S.sync().then(function (r) {
         ui.lastSync = Date.now();
+        var removed = removeBlankTodos();
         render();
-        if (r.pulled) toast('已从电脑端拉回 ' + r.pulled + ' 条');
+        if (removed) toast('已清理 ' + removed + ' 条空白任务');
+        else if (r.pulled) toast('已从电脑端拉回 ' + r.pulled + ' 条');
       }).catch(function (e) { render(); toast('同步失败：' + e.message, 4000); });
     }
 
@@ -1120,8 +1189,11 @@
       if (!S.cfg.syncOn || !GH.isSignedIn() || S.busy) return;
       if (Date.now() - ui.lastSync < 60000) return;
       S.sync().then(function (r) {
-        ui.lastSync = Date.now(); render();
-        if (r.pulled) toast('已拉回 ' + r.pulled + ' 条');
+        ui.lastSync = Date.now();
+        var removed = removeBlankTodos();
+        render();
+        if (removed) toast('已清理 ' + removed + ' 条空白任务');
+        else if (r.pulled) toast('已拉回 ' + r.pulled + ' 条');
       }).catch(function () { render(); });
     });
 

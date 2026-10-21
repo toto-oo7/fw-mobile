@@ -110,8 +110,10 @@ html, body {
 }
 
 body { display: flex; flex-direction: column; background: var(--bg); }
-/* 若 WebKit 裁掉了底栏向下延伸的部分，页面底色也要与底栏接上。 */
+/* 主屏模式有视口缺口时，连同列表和输入区一起向屏幕底部延伸。 */
 html.pwa-standalone body {
+  height: calc(100% + var(--pwa-gap));
+  min-height: calc(100dvh + var(--pwa-gap));
   background: linear-gradient(to bottom,
     var(--bg) 0, var(--bg) calc(100% - var(--pwa-gap)),
     var(--card) calc(100% - var(--pwa-gap)), var(--card) 100%);
@@ -333,16 +335,16 @@ textarea { resize: none; line-height: 1.55; }
 #tabs {
   /* 固定在视口底部，并按实测缺口向屏幕边缘延伸。 */
   position: fixed; left: 0; right: 0; z-index: 20;
-  /* 增加相同高度的 padding，按钮仍停在原位置。 */
+  /* 整个底栏移到屏幕底边；额外 padding 只用于 Safari 地址栏。 */
   bottom: calc(0px - var(--pwa-gap, 0px));
-  padding-bottom: calc(var(--vv-gap, 0px) + var(--pwa-gap, 0px));
+  padding-bottom: var(--vv-gap, 0px);
   display: flex; background: var(--card);
   border-top: 1px solid var(--line);
 }
 /* 底部填充区使用不透明背景。 */
 #tabs::after {
   content: ''; position: absolute; left: 0; right: 0; bottom: 0;
-  height: calc(var(--vv-gap, 0px) + var(--pwa-gap, 0px));
+  height: var(--vv-gap, 0px);
   background: var(--card); pointer-events: none;
 }
 #tabs button {

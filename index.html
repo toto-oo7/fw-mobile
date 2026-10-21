@@ -18,9 +18,13 @@
 <!-- 先于外部样式应用底栏修正，避免缓存旧 CSS 时底部再次露出灰带。
      --vv-gap 处理浏览器工具栏；--pwa-gap 补主屏模式下的屏幕缺口。 -->
 <style>
+  html.pwa-standalone body {
+    height: calc(100% + var(--pwa-gap, 0px)) !important;
+    min-height: calc(100dvh + var(--pwa-gap, 0px)) !important;
+  }
   #tabs {
     bottom: calc(0px - var(--pwa-gap, 0px)) !important;
-    padding-bottom: calc(var(--vv-gap, 0px) + var(--pwa-gap, 0px)) !important;
+    padding-bottom: var(--vv-gap, 0px) !important;
     background: var(--card) !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
@@ -28,7 +32,7 @@
   /* 底部填充区始终使用与标签栏相同的实色。 */
   #tabs::after {
     content: ''; position: absolute; left: 0; right: 0; bottom: 0;
-    height: calc(var(--vv-gap, 0px) + var(--pwa-gap, 0px));
+    height: var(--vv-gap, 0px);
     background: var(--card); pointer-events: none;
   }
   /* 视口外区域与标签栏同色。 */

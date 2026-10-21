@@ -80,7 +80,7 @@
   }
 
   // 页面上写死的时间戳 —— 看到它说明这个文件本身就是新的（check.html 从未被缓存过）
-  $('#stamp').textContent = '体检页构建时间：2026-10-21 · b14';
+  $('#stamp').textContent = '体检页构建时间：2026-10-21 · b15';
 
   // ① Service Worker 状态
   var swInfo = '不支持';
@@ -103,13 +103,14 @@
       return fetch('./app.css?probe=' + Date.now(), { cache: 'no-store' })
         .then(function (r) { return r.text(); })
         .then(function (css) {
-          var isNew = css.indexOf('padding-bottom: calc(var(--vv-gap') >= 0 &&
+          var isNew = css.indexOf('padding-bottom: var(--vv-gap, 0px)') >= 0 &&
+            css.indexOf('height: calc(100% + var(--pwa-gap))') >= 0 &&
             css.indexOf('html { background: var(--card)') >= 0 &&
             css.indexOf('--pwa-gap: 0px') >= 0 &&
             /#tabs\s*\{[\s\S]*?background:\s*var\(--card\)/.test(css);
           var isOld = /#tabs\s*\{[^}]*bottom:\s*var\(--vv-gap/.test(css);
           add('app.css 版本',
-            isNew ? '新版（底栏延伸到主屏幕底边）'
+            isNew ? '新版（底栏和输入区贴近屏幕底边）'
                   : (isOld ? '★ 旧版（bottom: var(--vv-gap) 整条抬起）' : '未知'),
             isNew ? 'ok' : 'bad');
           if (!isNew) bad++;
@@ -118,7 +119,8 @@
           return fetch('./index.html?probe=' + Date.now(), { cache: 'no-store' })
             .then(function (r) { return r.text(); })
             .then(function (html) {
-              var hasGuard = html.indexOf('padding-bottom: calc(var(--vv-gap, 0px) + var(--pwa-gap, 0px)) !important') >= 0 &&
+              var hasGuard = html.indexOf('padding-bottom: var(--vv-gap, 0px) !important') >= 0 &&
+                html.indexOf('height: calc(100% + var(--pwa-gap, 0px)) !important') >= 0 &&
                 html.indexOf('background: var(--card) !important') >= 0;
               add('index.html 兜底', hasGuard ? '有（!important 内联样式）' : '没有',
                   hasGuard ? 'ok' : 'bad');

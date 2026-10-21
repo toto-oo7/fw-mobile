@@ -26,7 +26,7 @@
        ① 这行常量  → 证明 app.js 是新的
        ② #tabs 的 computed position → 证明 app.css 是新的（旧版是 static，v8 起是 fixed）
        ③ 底栏底 / 视口高 → 直接量「到底贴没贴底」，不靠肉眼判断 */
-  var APP_BUILD = 'b14';
+  var APP_BUILD = 'b15';
 
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
@@ -632,9 +632,12 @@
     var cs = getComputedStyle(t);
     out.push(cs.position || '?');
     var b = Math.round(t.getBoundingClientRect().bottom);
-    var vh = Math.round(window.innerHeight);
-    var d = vh - b;
-    out.push(b + '/' + vh + (Math.abs(d) <= 1 ? ' ✓' : ' ✗' + d));
+    var standalone = navigator.standalone === true ||
+      (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+    var target = Math.round(standalone ? window.screen.height : window.innerHeight);
+    var d = target - b;
+    out.push(b + '/' + target + (Math.abs(d) <= 1 ? ' ✓' : ' ✗' + d));
+    if (standalone) out.push('页面 ' + Math.round(document.body.getBoundingClientRect().height) + '/' + target);
     return out.join(' · ');
   }
 
@@ -1150,8 +1153,9 @@
       document.documentElement.style.setProperty('--vv-gap', gap + 'px');
 
       // 主屏幕 App：部分 iOS 版本把 fixed 底栏画在屏幕底部之上。
-      // screen.height 是物理屏幕的 CSS 像素高；扣掉底栏原本的底边，
-      // 只把背景向下延伸，按钮位置保持不变。减去已应用值避免重复测量时振荡。
+      // screen.height 是物理屏幕的 CSS 像素高；扣掉底栏原本的底边。
+      // 底栏与页面高度都延伸同样距离，让按钮和输入区一起下移。
+      // 减去已应用值避免重复测量时振荡。
       var standalone = navigator.standalone === true ||
         (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
       var tabs = document.getElementById('tabs');
@@ -1180,7 +1184,7 @@
       var tabsEl = document.getElementById('tabs');
       if (tabsEl) {
         tabsEl.style.bottom = 'calc(0px - var(--pwa-gap, 0px))';
-        tabsEl.style.paddingBottom = 'calc(var(--vv-gap, 0px) + var(--pwa-gap, 0px))';
+        tabsEl.style.paddingBottom = 'var(--vv-gap, 0px)';
         tabsEl.style.background = 'var(--card)';
         tabsEl.style.backdropFilter = 'none';
         tabsEl.style.webkitBackdropFilter = 'none';

@@ -8,28 +8,29 @@
  *   · 深/浅主题走 CSS 变量，跟随系统
  *   · 安全区（刘海 + 底部小横条）全留出来，装到主屏后不会被切掉
  *
- * ⚠ 颜色和桌面端保持一致：强调色 #0A84FF / #007AFF，次要文字 #98989D，
- *   浅色分组头底色 #F2F2F7 —— 两端看起来才像同一个东西。
+ * ⚠ 颜色和桌面端保持一致：柔和蓝灰底 + 清晰白色卡片 + 系统蓝强调色。
  */
 
 :root {
-  --accent: #007AFF;
-  --accent-dim: rgba(0, 122, 255, .12);
-  --bg: #F2F2F7;
+  --accent: #3478F6;
+  --accent-dim: rgba(52, 120, 246, .14);
+  --accent-soft: #EAF1FF;
+  --bg: #F5F7FB;
   --card: #FFFFFF;
-  --card-2: #F2F2F7;
-  --text: #000000;
-  --text-2: #8E8E93;
-  --text-3: #C7C7CC;
-  --line: rgba(60, 60, 67, .18);
-  --red: #FF3B30;
-  --green: #34C759;
-  --orange: #FF9500;
+  --card-2: #F0F3F8;
+  --text: #182230;
+  --text-2: #748092;
+  --text-3: #B4BDC9;
+  --line: rgba(40, 55, 75, .11);
+  --red: #EF4D56;
+  --green: #2DBE72;
+  --orange: #F59A23;
+  --shadow: 0 8px 24px rgba(44, 62, 88, .08), 0 1px 3px rgba(44, 62, 88, .05);
   /* ⚠ 分组头底色：必须和**卡片**（白）拉开差距。之前直接用 --card-2 (#F2F2F7)，
      而页面底色恰好也是 #F2F2F7 —— 组头一贴上去就看不见了，
      toto 当初要的「一眼看出和子项的差别」就没了。这里单独给一个更实的灰。 */
-  --group-bg: #E4E4E9;
-  --radius: 12px;
+  --group-bg: #EDF3FF;
+  --radius: 16px;
   /* ⚠ 底栏总高 = 这个值 + 底部安全区。52 偏高了，内容只有一行图标 + 一行字，
      下面会剩一大截空；46 刚好（2026-10-15 toto 反馈「底下空白太大」）。 */
   --tabbar-h: 46px;
@@ -44,36 +45,40 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --accent: #0A84FF;
-    --accent-dim: rgba(10, 132, 255, .22);
-    --bg: #000000;
-    --card: #1C1C1E;
-    --card-2: #2C2C2E;
-    --text: #FFFFFF;
-    --text-2: #98989D;
-    --text-3: #48484A;
-    --line: rgba(84, 84, 88, .6);
-    --red: #FF453A;
-    --green: #30D158;
-    --orange: #FF9F0A;
-    --group-bg: #2C2C2E;
+    --accent: #5A9BFF;
+    --accent-dim: rgba(90, 155, 255, .22);
+    --accent-soft: #223D63;
+    --bg: #11141A;
+    --card: #1D222A;
+    --card-2: #272D37;
+    --text: #F5F7FA;
+    --text-2: #9BA5B3;
+    --text-3: #596574;
+    --line: rgba(151, 166, 185, .18);
+    --red: #FF6262;
+    --green: #45D483;
+    --orange: #FFAE42;
+    --group-bg: #252D39;
+    --shadow: 0 8px 28px rgba(0, 0, 0, .22), 0 1px 3px rgba(0, 0, 0, .18);
   }
 }
 
 /* 手动切换主题时覆盖系统设置 */
 html[data-theme="light"] {
-  --accent: #007AFF; --accent-dim: rgba(0,122,255,.12);
-  --bg: #F2F2F7; --card: #FFFFFF; --card-2: #F2F2F7;
-  --text: #000000; --text-2: #8E8E93; --text-3: #C7C7CC;
-  --line: rgba(60,60,67,.18); --red: #FF3B30; --green: #34C759; --orange: #FF9500;
-  --group-bg: #E4E4E9;
+  --accent: #3478F6; --accent-dim: rgba(52,120,246,.14); --accent-soft:#EAF1FF;
+  --bg: #F5F7FB; --card: #FFFFFF; --card-2: #F0F3F8;
+  --text: #182230; --text-2: #748092; --text-3: #B4BDC9;
+  --line: rgba(40,55,75,.11); --red: #EF4D56; --green: #2DBE72; --orange: #F59A23;
+  --group-bg: #EDF3FF;
+  --shadow: 0 8px 24px rgba(44,62,88,.08), 0 1px 3px rgba(44,62,88,.05);
 }
 html[data-theme="dark"] {
-  --accent: #0A84FF; --accent-dim: rgba(10,132,255,.22);
-  --bg: #000000; --card: #1C1C1E; --card-2: #2C2C2E;
-  --text: #FFFFFF; --text-2: #98989D; --text-3: #48484A;
-  --line: rgba(84,84,88,.6); --red: #FF453A; --green: #30D158; --orange: #FF9F0A;
-  --group-bg: #2C2C2E;
+  --accent: #5A9BFF; --accent-dim: rgba(90,155,255,.22); --accent-soft:#223D63;
+  --bg: #11141A; --card: #1D222A; --card-2: #272D37;
+  --text: #F5F7FA; --text-2: #9BA5B3; --text-3: #596574;
+  --line: rgba(151,166,185,.18); --red: #FF6262; --green: #45D483; --orange: #FFAE42;
+  --group-bg: #252D39;
+  --shadow: 0 8px 28px rgba(0,0,0,.22), 0 1px 3px rgba(0,0,0,.18);
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -123,12 +128,12 @@ html.pwa-standalone body {
 
 #hdr {
   flex: 0 0 auto;
-  padding: calc(var(--safe-t) + 8px) 16px 8px;
+  padding: calc(var(--safe-t) + 12px) 18px 10px;
   background: var(--bg);
   display: flex; align-items: center; gap: 8px;
   position: sticky; top: 0; z-index: 20;
 }
-#hdr-title { font-size: 28px; font-weight: 700; letter-spacing: -.4px; flex: 1; }
+#hdr-title { font-size: 29px; font-weight: 750; letter-spacing: -.65px; flex: 1; }
 #hdr-sub { font-size: 13px; color: var(--text-2); font-weight: 400; margin-left: 8px; }
 
 .hbtn {
@@ -161,7 +166,7 @@ html.pwa-standalone body {
      否则最后一条会被压在标签栏底下。 */
   padding-bottom: calc(var(--tabbar-h) + var(--safe-b) + var(--vv-gap, 0px));
 }
-.page { display: none; padding: 0 16px 16px; }
+.page { display: none; padding: 0 18px 18px; }
 .page.on { display: block; }
 
 /* ⚠⚠ 待办页要「撑满 + 输入框钉在底部」（2026-10-15 toto 反馈「底下空白太大」）。
@@ -184,6 +189,7 @@ html.pwa-standalone body {
 .card {
   background: var(--card); border-radius: var(--radius);
   overflow: hidden; margin-bottom: 14px;
+  border: 1px solid var(--line); box-shadow: var(--shadow);
 }
 .card-t {
   font-size: 13px; color: var(--text-2); text-transform: none;
@@ -193,7 +199,7 @@ html.pwa-standalone body {
 
 .row {
   display: flex; align-items: center; gap: 10px;
-  padding: 11px 14px; min-height: 46px;
+  padding: 12px 14px; min-height: 50px;
   position: relative;
 }
 .row + .row::before {
@@ -218,7 +224,7 @@ html.pwa-standalone body {
   display: flex; align-items: center; justify-content: center;
   color: transparent; font-size: 14px; line-height: 1; cursor: pointer;
 }
-.dot-check.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.dot-check.on { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 0 3px 10px var(--accent-dim); }
 .dot-check:active { transform: scale(.88); }
 
 /* 重要程度：○ / ● / ●● / ●●●（和桌面端同一套字形，别用 emoji） */
@@ -230,10 +236,11 @@ html.pwa-standalone body {
      组头用同一个灰会整条隐形（toto 要的「一眼看出和子项的差别」就没了）。 */
 .ghead {
   display: flex; align-items: center; gap: 8px;
-  padding: 11px 14px;
+  padding: 12px 14px;
   background: var(--group-bg);
   font-weight: 600; font-size: 15px;
   position: relative;
+  border-bottom: 1px solid var(--line);
 }
 .ghead .gname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ghead .gcount { font-size: 12.5px; color: var(--text-2); font-weight: 400; }
@@ -268,7 +275,7 @@ html.pwa-standalone body {
 input:not([type=checkbox]):not([type=radio]), textarea, select {
   font-family: inherit; font-size: 16px;   /* ⚠ <16px 时 iOS 会自动放大页面 */
   color: var(--text); background: var(--card-2);
-  border: none; border-radius: 10px; padding: 11px 12px; width: 100%;
+  border: 1px solid var(--line); border-radius: 12px; padding: 11px 12px; width: 100%;
   -webkit-appearance: none; appearance: none;
 }
 input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent-dim); }
@@ -278,7 +285,7 @@ textarea { resize: none; line-height: 1.55; }
    列表在它自己的滚动区里滚，不会有东西从它下面穿过，所以底色直接用页面色就行。 */
 .composer {
   display: flex; gap: 8px; align-items: center;
-  padding: 8px 0 4px;
+  padding: 10px 0 6px;
   background: var(--bg);
 }
 .composer input { flex: 1 1 auto; min-width: 0; }
@@ -290,8 +297,9 @@ textarea { resize: none; line-height: 1.55; }
 }
 .addbtn {
   border: none; background: var(--accent); color: #fff;
-  width: 40px; height: 40px; border-radius: 50%; font-size: 22px; line-height: 1;
+  width: 42px; height: 42px; border-radius: 14px; font-size: 23px; line-height: 1;
   flex: 0 0 auto; cursor: pointer; font-family: inherit;
+  box-shadow: 0 7px 18px var(--accent-dim);
 }
 .addbtn:active { opacity: .6; }
 
@@ -309,11 +317,11 @@ textarea { resize: none; line-height: 1.55; }
 
 /* ---------------------------------------------------------------- 日历 */
 
-#calhdr { display: flex; align-items: center; justify-content: center; gap: 18px; padding: 4px 0 12px; }
+#calhdr { display: flex; align-items: center; justify-content: center; gap: 18px; padding: 10px 0 16px; }
 #calhdr .m { font-size: 19px; font-weight: 600; min-width: 130px; text-align: center; }
 #calhdr button { border: none; background: none; color: var(--accent); font-size: 20px; padding: 4px 10px; cursor: pointer; font-family: inherit; }
 
-#calgrid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+#calgrid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; padding: 12px 10px 14px; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
 #calgrid .wk { text-align: center; font-size: 12px; color: var(--text-2); padding: 4px 0 6px; }
 #calgrid .d {
   aspect-ratio: 1 / 1; display: flex; flex-direction: column;
@@ -340,6 +348,7 @@ textarea { resize: none; line-height: 1.55; }
   padding-bottom: var(--vv-gap, 0px);
   display: flex; background: var(--card);
   border-top: 1px solid var(--line);
+  box-shadow: 0 -8px 24px rgba(44, 62, 88, .06);
 }
 /* 底部填充区使用不透明背景。 */
 #tabs::after {
@@ -365,7 +374,8 @@ textarea { resize: none; line-height: 1.55; }
 /* ⚠ 图标现在是内联 SVG，尺寸由 CSS 定，不再受「字体有没有这个字形」影响 */
 #tabs button .ic { display: flex; align-items: center; justify-content: center; }
 #tabs button .ic svg { width: 22px; height: 22px; display: block; }
-#tabs button.on { color: var(--accent); }
+#tabs button.on { color: var(--accent); font-weight: 600; }
+#tabs button.on .ic { background: var(--accent-soft); border-radius: 10px; padding: 3px 13px; margin: -3px 0; }
 #tabs button:active { opacity: .55; }
 
 /* ---------------------------------------------------------------- 弹层 */
@@ -378,7 +388,8 @@ textarea { resize: none; line-height: 1.55; }
 
 #sheet {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
-  background: var(--bg); border-radius: 16px 16px 0 0;
+  background: var(--bg); border-radius: 22px 22px 0 0;
+  box-shadow: 0 -16px 40px rgba(0,0,0,.16);
   padding: 10px 16px calc(16px + var(--safe-b));
   max-height: 86vh; overflow-y: auto;
   transform: translateY(102%); transition: transform .26s cubic-bezier(.32,.72,0,1);

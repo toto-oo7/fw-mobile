@@ -7,32 +7,31 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="小浮窗">
-<meta name="theme-color" content="#F2F2F7">
+<meta name="theme-color" content="#FFFFFF">
 <meta name="format-detection" content="telephone=no">
 <meta name="description" content="小浮窗手机版 —— 和电脑端双向同步的待办 / 日历 / 备忘">
+<script>if (navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) document.documentElement.classList.add('pwa-standalone');</script>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="stylesheet" href="app.css">
-<!-- ★★ 底栏兜底（2026-10-20，toto 报「底框又出现白框」）
-     病根：旧版 app.css 写的是 `#tabs { bottom: var(--vv-gap) }` —— 把**整条底栏**抬起来，
-     抬起来之后下面空出 gap 那么高的一截，露出 body 背景 #F2F2F7，
-     而底栏本身是 92% 白 → 看着就是「白条下面垫了一条浅灰」。
-     手机上很可能还缓存着那份旧 CSS（Service Worker / CDN 都可能），
-     所以这里用**内联 + !important** 把新行为钉死：
-       背景永远铺到视口底（bottom:0），`--vv-gap` 只顶里面的图标文字。
-     优先级高于样式表里任何普通声明 —— 旧 CSS 再怎么缓存也盖不掉。 -->
+<!-- 先于外部样式应用底栏修正，避免缓存旧 CSS 时底部再次露出灰带。
+     --vv-gap 处理浏览器工具栏；--pwa-gap 补主屏模式下的屏幕缺口。 -->
 <style>
-  #tabs { bottom: 0 !important; padding-bottom: var(--vv-gap, 0px) !important; }
-  /* 再补一层实色盖住 gap 那段：iOS 上 `backdrop-filter` 偶尔不覆盖 padding 区，
-     半透明背景叠上去会透出 body 的浅灰 → 又变成一条白/灰带。
-     这层是不透明的 --card（白/黑），高度 = gap，gap=0 时高度 0、完全无影响。 */
+  #tabs {
+    bottom: calc(0px - var(--pwa-gap, 0px)) !important;
+    padding-bottom: calc(var(--vv-gap, 0px) + var(--pwa-gap, 0px)) !important;
+    background: var(--card) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  /* 底部填充区始终使用与标签栏相同的实色。 */
   #tabs::after {
     content: ''; position: absolute; left: 0; right: 0; bottom: 0;
-    height: var(--vv-gap, 0px); background: var(--card); pointer-events: none;
+    height: calc(var(--vv-gap, 0px) + var(--pwa-gap, 0px));
+    background: var(--card); pointer-events: none;
   }
-  /* ★ 视口**外**那块（Safari 底部工具栏透出的就是它）用卡片色，
-     和标签栏连成一片；body 仍是页面底色，视口内观感不变。 */
+  /* 视口外区域与标签栏同色。 */
   html { background: var(--card); }
 </style>
 <title>小浮窗</title>

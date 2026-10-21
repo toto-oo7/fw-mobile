@@ -26,7 +26,7 @@
        ① 这行常量  → 证明 app.js 是新的
        ② #tabs 的 computed position → 证明 app.css 是新的（旧版是 static，v8 起是 fixed）
        ③ 底栏底 / 视口高 → 直接量「到底贴没贴底」，不靠肉眼判断 */
-  var APP_BUILD = 'b13';
+  var APP_BUILD = 'b14';
 
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
@@ -1048,7 +1048,7 @@
     else document.documentElement.setAttribute('data-theme', t);
     var dark = t === 'dark' || (t === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
     var m = document.querySelector('meta[name="theme-color"]');
-    if (m) m.setAttribute('content', dark ? '#000000' : '#F2F2F7');
+    if (m) m.setAttribute('content', dark ? '#1C1C1E' : '#FFFFFF');
   }
 
   /* ---------------------------------------------------------------- 启动 */
@@ -1078,6 +1078,12 @@
     } catch (e) { console.warn('[fix] done_at 修补跳过', e); }
 
     applyTheme(S.cfg.theme);
+    var colorScheme = window.matchMedia('(prefers-color-scheme: dark)');
+    var onColorSchemeChange = function () {
+      if (S.cfg.theme === 'auto') applyTheme('auto');
+    };
+    if (colorScheme.addEventListener) colorScheme.addEventListener('change', onColorSchemeChange);
+    else if (colorScheme.addListener) colorScheme.addListener(onColorSchemeChange);
 
     // 从主屏图标的长按菜单进来时可能带着 ?t=cal 这种，先认一下
     var q0;
@@ -1116,27 +1122,11 @@
       }).catch(function () { render(); });
     });
 
-    // ★★ 可视区校正（2026-10-17，iPhone 14 Pro 实测后加）
-    //   `position: fixed; bottom: 0` 锚的是**布局视口**。但 iPhone 上 Safari 的
-    //   底部地址栏是**浮在页面之上**的：地址栏露出来时，布局视口底部那 ~50px
-    //   其实被它盖住了 —— 标签栏老老实实贴到了「布局视口」底，看起来却像
-    //   「下方空了一截」（露出来的是画布底色）。
-    //   visualViewport 给的才是**真正看得见**的那块：算出它离布局视口底差多少，
-    //   塞进 --vv-gap，CSS 里 `#tabs { bottom: var(--vv-gap) }` 跟着抬。
-    //   ⚠ 超过 140px 不抬 —— 那是**键盘弹起**（不是地址栏），抬了标签栏会飞到半空。
-    //   ★ 2026-10-20：`--vv-gap` 现在只顶**内容**（`#tabs` 的 padding-bottom），
-    //     标签栏白底始终铺到视口底 —— 所以这里算错了也不会再露白框，
-    //     最多是图标文字上下挪一点。顺手加了三条降噪：
-    //     ① < 12px 当噪声归零（地址栏最小也有 44px，十几像素的都是滚动抖动）
-    //     ② 地址栏动画结束后用 rAF 再采一次，取稳定值
-    //     ③ 页面重新可见 / 从缓存恢复时重算（iOS 切后台回来 visualViewport 常是旧值）
-    //   ⚠⚠ 2026-10-20 补：**必须减掉底部安全区**。
-    //     实测 toto 截图里露出的灰带 ≈ 86px，而 iPhone 14 Pro 的地址栏 ≈ 50、
-    //     安全区 = 34 —— 86 = 50 + 34。也就是说 `innerHeight - (offsetTop + height)`
-    //     量到的是「地址栏 + 安全区」，但 `#tabs button` 的
-    //     `height: calc(46px + var(--safe-b))` **已经把安全区算进去了**，
-    //     再抬一遍就是重复 → 标签栏凭空高出一截。减掉才是地址栏的真实高度。
+    // Safari 地址栏与主屏 App 的视口底边分别测量。
+    // 浏览器工具栏用 --vv-gap；主屏模式的屏幕缺口用 --pwa-gap。
+    // 高于 140px 的 visualViewport 缺口通常来自键盘，不移动底栏。
     var vvTimer = 0;
+    var pwaGap = 0;
     var _safeB = -1;
     function measureSafeB() {
       if (_safeB >= 0) return _safeB;
@@ -1158,6 +1148,21 @@
       }
       if (!(gap >= 12) || gap > 140) gap = 0;
       document.documentElement.style.setProperty('--vv-gap', gap + 'px');
+
+      // 主屏幕 App：部分 iOS 版本把 fixed 底栏画在屏幕底部之上。
+      // screen.height 是物理屏幕的 CSS 像素高；扣掉底栏原本的底边，
+      // 只把背景向下延伸，按钮位置保持不变。减去已应用值避免重复测量时振荡。
+      var standalone = navigator.standalone === true ||
+        (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+      var tabs = document.getElementById('tabs');
+      var next = 0;
+      if (standalone && tabs && window.screen && window.screen.height) {
+        var originalBottom = tabs.getBoundingClientRect().bottom - pwaGap;
+        next = Math.round(window.screen.height - originalBottom);
+        if (next < 12 || next > 120) next = 0;
+      }
+      pwaGap = next;
+      document.documentElement.style.setProperty('--pwa-gap', pwaGap + 'px');
     }
     function syncVvGapSoon() {
       syncVvGap();
@@ -1174,8 +1179,11 @@
     try {
       var tabsEl = document.getElementById('tabs');
       if (tabsEl) {
-        tabsEl.style.bottom = '0';
-        tabsEl.style.paddingBottom = 'var(--vv-gap, 0px)';
+        tabsEl.style.bottom = 'calc(0px - var(--pwa-gap, 0px))';
+        tabsEl.style.paddingBottom = 'calc(var(--vv-gap, 0px) + var(--pwa-gap, 0px))';
+        tabsEl.style.background = 'var(--card)';
+        tabsEl.style.backdropFilter = 'none';
+        tabsEl.style.webkitBackdropFilter = 'none';
       }
     } catch (e) { /* 老浏览器没有 style 就算了 */ }
     if (window.visualViewport) {

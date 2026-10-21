@@ -3,7 +3,7 @@
  * ============================================================================
  * 观感目标：**像 iOS 自带 App**，而不是「一个网页」。
  *   · 分组卡片式列表（inset grouped，和「设置」一个路子）
- *   · 底部标签栏 + 毛玻璃
+ *   · 底部标签栏使用与系统底部一致的实色背景
  *   · 只用系统字体、圆角、细分隔线；少描边、多留白
  *   · 深/浅主题走 CSS 变量，跟随系统
  *   · 安全区（刘海 + 底部小横条）全留出来，装到主屏后不会被切掉
@@ -38,6 +38,8 @@
   /* ★ 布局视口底 与 真正看得见的底 之间差多少（px，由 app.js 的 syncVvGap 算）。
      只在 iPhone Safari 底部地址栏露出时 > 0；主屏 App / 桌面浏览器恒为 0。 */
   --vv-gap: 0px;
+  /* 主屏幕模式下 WebKit 偶尔把 fixed 的底边停在屏幕上方；由 JS 测出缺口。 */
+  --pwa-gap: 0px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -82,15 +84,7 @@ html[data-theme="dark"] {
    用 !important 把它按回去。 */
 [hidden] { display: none !important; }
 
-/* ★★★ 2026-10-20（toto：体检页显示"好了"，但主页底下还是有一条）：
-   `html` 的 background 才是**视口外**那块区域的颜色。
-   iOS Safari 的底部工具栏是浮在页面之上的半透明层，它透出的是「布局视口之外」的
-   渲染结果 —— 也就是 `html` 的背景。原来 `html, body` 都写 `--bg`(#F2F2F7)，
-   于是工具栏那一条永远浅灰，看着就像「底栏没贴底、下面垫了一块」。
-   现在：`html` 用 `--card`（浅色=白 / 深色=#1C1C1E），`body` 仍是 `--bg`。
-     · 视口内 → 看 body（页面正常底色）
-     · 工具栏/安全区那块 → 透出 html 的卡片色 → 和标签栏连成一片，无缝
-   主屏 App（没有工具栏）视口就等于屏幕，body 铺满，这条完全不起作用。 */
+/* iOS 将视口外区域露出来时，背景与底栏保持同色。 */
 html { background: var(--card); }
 
 html, body {
@@ -116,6 +110,12 @@ html, body {
 }
 
 body { display: flex; flex-direction: column; background: var(--bg); }
+/* 若 WebKit 裁掉了底栏向下延伸的部分，页面底色也要与底栏接上。 */
+html.pwa-standalone body {
+  background: linear-gradient(to bottom,
+    var(--bg) 0, var(--bg) calc(100% - var(--pwa-gap)),
+    var(--card) calc(100% - var(--pwa-gap)), var(--card) 100%);
+}
 
 /* ---------------------------------------------------------------- 顶栏 */
 
@@ -331,35 +331,19 @@ textarea { resize: none; line-height: 1.55; }
 /* ---------------------------------------------------------------- 标签栏 */
 
 #tabs {
-  /* ★★ 钉在**视口**底部（2026-10-16 toto 反馈「下部白框可以贴底吗」）。
-     原来是 body 里 `flex: 0 0 auto` 的最后一个子项，位置取决于 body 有多高；
-     而 body 高度来自 `100dvh` —— 某些浏览器（iOS Safari 底栏收起/展开的那一瞬、
-     以及部分 webview）算出来的值会比**实际可视高度**小几十像素，
-     标签栏就停在 body 底部，下面露出一截页面底色，看着像「没贴底」。
-     `position: fixed; bottom: 0` 锚的是**视口**，跟 body 多高完全无关 → 永远贴底。 */
+  /* 固定在视口底部，并按实测缺口向屏幕边缘延伸。 */
   position: fixed; left: 0; right: 0; z-index: 20;
-  /* ★★ 2026-10-20 改：**底边永远钉在视口底**，`--vv-gap` 改成往上顶内容的 padding。
-     为什么（toto 报「底框又出现白框」）：
-       10-17 的写法是 `bottom: var(--vv-gap)`，把**整条标签栏**抬起来 ——
-       抬起来之后它下面那 `--vv-gap` 高度就空着，露出的是 body 背景 #F2F2F7。
-       而标签栏本身是 92% 白，于是「白条下面又垫一条浅灰」= 看着像白框没贴底。
-       现在改成 `bottom: 0` + `padding-bottom: var(--vv-gap)`：
-       白底**一直铺到视口最底**（视觉上永远贴底、不留缝），
-       只有里面的「图标 + 文字」被这段 padding 顶到地址栏上方（照样不被盖住）。
-     没有地址栏（主屏 App、桌面）时 gap = 0，等价于原来什么都没加。 */
-  bottom: 0;
-  padding-bottom: var(--vv-gap, 0px);
-  display: flex;  background: color-mix(in srgb, var(--card) 92%, transparent);
-  backdrop-filter: saturate(180%) blur(20px);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  /* 增加相同高度的 padding，按钮仍停在原位置。 */
+  bottom: calc(0px - var(--pwa-gap, 0px));
+  padding-bottom: calc(var(--vv-gap, 0px) + var(--pwa-gap, 0px));
+  display: flex; background: var(--card);
   border-top: 1px solid var(--line);
 }
-/* ★ 实色兜底（2026-10-20）：`--vv-gap` 那段 padding 再盖一层不透明底色。
-   为什么：#tabs 的背景是 92% 白 + backdrop-filter，iOS 上偶尔不覆盖 padding 区，
-   会透出 body 的 #F2F2F7 → 又变成一条白/灰带。这层是纯 --card，gap=0 时高度 0。 */
+/* 底部填充区使用不透明背景。 */
 #tabs::after {
   content: ''; position: absolute; left: 0; right: 0; bottom: 0;
-  height: var(--vv-gap, 0px); background: var(--card); pointer-events: none;
+  height: calc(var(--vv-gap, 0px) + var(--pwa-gap, 0px));
+  background: var(--card); pointer-events: none;
 }
 #tabs button {
   flex: 1; border: none; background: none; color: var(--text-2);

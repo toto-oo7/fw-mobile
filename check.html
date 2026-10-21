@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#F2F2F7">
+<meta name="theme-color" content="#FFFFFF">
 <title>小浮窗 · 版本体检</title>
 <style>
   :root {
@@ -80,7 +80,7 @@
   }
 
   // 页面上写死的时间戳 —— 看到它说明这个文件本身就是新的（check.html 从未被缓存过）
-  $('#stamp').textContent = '体检页构建时间：2026-10-20 12:06 · b13';
+  $('#stamp').textContent = '体检页构建时间：2026-10-21 · b14';
 
   // ① Service Worker 状态
   var swInfo = '不支持';
@@ -103,11 +103,13 @@
       return fetch('./app.css?probe=' + Date.now(), { cache: 'no-store' })
         .then(function (r) { return r.text(); })
         .then(function (css) {
-          var isNew = css.indexOf('padding-bottom: var(--vv-gap') >= 0 &&
-            css.indexOf('html { background: var(--card)') >= 0;
+          var isNew = css.indexOf('padding-bottom: calc(var(--vv-gap') >= 0 &&
+            css.indexOf('html { background: var(--card)') >= 0 &&
+            css.indexOf('--pwa-gap: 0px') >= 0 &&
+            /#tabs\s*\{[\s\S]*?background:\s*var\(--card\)/.test(css);
           var isOld = /#tabs\s*\{[^}]*bottom:\s*var\(--vv-gap/.test(css);
           add('app.css 版本',
-            isNew ? '新版（bottom:0 + padding + html 底色）'
+            isNew ? '新版（底栏延伸到主屏幕底边）'
                   : (isOld ? '★ 旧版（bottom: var(--vv-gap) 整条抬起）' : '未知'),
             isNew ? 'ok' : 'bad');
           if (!isNew) bad++;
@@ -116,7 +118,8 @@
           return fetch('./index.html?probe=' + Date.now(), { cache: 'no-store' })
             .then(function (r) { return r.text(); })
             .then(function (html) {
-              var hasGuard = html.indexOf('padding-bottom: var(--vv-gap, 0px) !important') >= 0;
+              var hasGuard = html.indexOf('padding-bottom: calc(var(--vv-gap, 0px) + var(--pwa-gap, 0px)) !important') >= 0 &&
+                html.indexOf('background: var(--card) !important') >= 0;
               add('index.html 兜底', hasGuard ? '有（!important 内联样式）' : '没有',
                   hasGuard ? 'ok' : 'bad');
               if (!hasGuard) bad++;
@@ -179,7 +182,7 @@
     var v = $('#verdict');
     if (bad === 0) {
       v.innerHTML = '<div class="big ok">✓ 文件和页面都是新版</div>' +
-        '<div class="why">那白框应该已经没了。还看得见的话，点下面按钮重新加载一次主页。</div>';
+        '<div class="why">底栏颜色和页面版本已更新。若仍看到空隙，请截屏给我确认位置。</div>';
       $('#fix').textContent = '重新加载主页';
     } else {
       v.innerHTML = '<div class="big bad">✗ 页面里跑的还不是新版</div>' +

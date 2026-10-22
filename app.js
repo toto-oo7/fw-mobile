@@ -27,7 +27,7 @@
        ① 这行常量  → 证明 app.js 是新的
        ② #tabs 的 computed position → 证明 app.css 是新的（旧版是 static，v8 起是 fixed）
        ③ 底栏底 / 视口高 → 直接量「到底贴没贴底」，不靠肉眼判断 */
-  var APP_BUILD = 'b19.1';
+  var APP_BUILD = 'b20';
 
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
@@ -709,7 +709,7 @@
     // ---- 关于
     h += '<div class="sec-t">关于</div><div class="card">';
     h += '<div class="row"><div class="grow"><div class="txt">小浮窗 · 手机版</div>' +
-      '<div class="sub">' + (user ? '当前使用邮箱账号云端同步。Windows 端仍使用原有 GitHub 同步通道。' : '原有 GitHub 通道可与电脑同步。') +
+      '<div class="sub">' + (user ? '电脑端在设置中登录同一邮箱，即可同步此账号的内容。' : '新版电脑端支持邮箱账号同步；原有 GitHub 通道也可继续使用。') +
       '改动按「最后写入的赢」合并，' +
       '而且只影响改到的那一条。同一时刻的冲突以删除为准，所以删掉的东西不会自己回来。</div></div></div>';
     // ★ 版本 / 自检（2026-10-16 加，2026-10-17 扩成三项）
@@ -1108,7 +1108,7 @@
       '<li>在 iPhone 的 Safari 中打开小浮窗。</li><li>点分享按钮，选择“添加到主屏幕”。</li>' +
       '<li>如果显示“作为网页 App 打开”，保持开启，再点“添加”。</li>' +
       '<li>从主屏幕图标打开，在“设置”登录自己的账号。</li></ol>' +
-      '<p class="hint">朋友用自己的邮箱注册，账号内容各自保存。账号云端同步暂未接入 Windows 版。</p>' +
+      '<p class="hint">朋友用自己的邮箱注册，账号内容各自保存。新版 Windows 小浮窗在设置中登录同一邮箱，即可与手机同步；首次登录可合并电脑原有内容。</p>' +
       '<button class="btn" id="share-app">分享给朋友</button><p class="hint" id="share-result" role="status"></p>',
       function (root) {
         $('#share-app', root).addEventListener('click', function () {
@@ -1174,7 +1174,12 @@
               '请检查邮箱中的确认邮件。确认后返回小浮窗登录；已注册的邮箱可以直接登录或找回密码。';
             return;
           }
-          closeSheet(); render(); toast(passwordOnly ? '密码已更新' : '已登录，正在同步自己的内容');
+          closeSheet(); render();
+          if (registering) {
+            openSheet('<h3>注册成功，已登录</h3><p class="hint">你的账号已可以使用。待办、日历和备忘会保存到这个账号；电脑端登录同一邮箱即可同步。</p><button class="btn" id="account-start">开始使用</button>', function (panel) {
+              $('#account-start', panel).addEventListener('click', closeSheet);
+            });
+          } else toast(passwordOnly ? '密码已更新' : '已登录，正在同步自己的内容');
           if (S.cfg.syncOn && S.canSync()) doSync();
         }).catch(function (error) {
           result.classList.add('err'); result.textContent = error.message || '操作未完成，请重试。';

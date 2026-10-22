@@ -9,7 +9,8 @@
 <meta name="apple-mobile-web-app-title" content="小浮窗">
 <meta name="theme-color" content="#FFFFFF">
 <meta name="format-detection" content="telephone=no">
-<meta name="description" content="小浮窗手机版 —— 和电脑端双向同步的待办 / 日历 / 备忘">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<meta name="description" content="小浮窗 —— 待办、日历与备忘录，支持独立邮箱账号和添加到 iPhone 主屏幕。">
 <script>if (navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) document.documentElement.classList.add('pwa-standalone');</script>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
@@ -110,6 +111,9 @@
 
 <script src="records.js"></script>
 <script src="gist.js"></script>
+<script src="cloud-config.js"></script>
+<script src="supabase.js"></script>
+<script src="account.js"></script>
 <script src="store.js"></script>
 <script src="app.js"></script>
 </body>

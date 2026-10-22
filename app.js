@@ -18,6 +18,7 @@
   var R = window.FWRecords;
   var S = window.Store;
   var GH = window.GH;
+  var A = window.Account;
 
   /* ★★ 界面代码的「构建号」—— **写死在这里**，每次改界面就改一下（2026-10-17 加）。
      为什么不能只靠 SW 的缓存名（v7/v8…）：那个只证明 **Service Worker 是新的**，
@@ -26,7 +27,7 @@
        ① 这行常量  → 证明 app.js 是新的
        ② #tabs 的 computed position → 证明 app.css 是新的（旧版是 static，v8 起是 fixed）
        ③ 底栏底 / 视口高 → 直接量「到底贴没贴底」，不靠肉眼判断 */
-  var APP_BUILD = 'b18.1';
+  var APP_BUILD = 'b19.1';
 
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
@@ -615,6 +616,30 @@
     var cfg = S.cfg, gh = GH.getCfg();
     var h = '';
 
+    h += '<div class="sec-t">我的账号</div><div class="card">';
+    var user = A.current();
+    h += '<div class="row"><div class="grow"><div class="txt">' +
+      (user ? esc(user.email) : '登录小浮窗') + '</div><div class="sub">' +
+      (user ? '当前内容保存在你的独立账号空间' : '登录后，在不同 iPhone 上同步自己的内容') +
+      '</div></div><button class="hbtn" data-act="' + (user ? 'account-out' : 'account-in') + '">' +
+      (user ? '退出' : '登录 / 注册') + '</button></div>';
+    if (A.recovering()) h += '<button class="row tap install-guide" data-act="account-password">设置新密码</button>';
+    if (!user) h += '<div class="row"><div class="sub">' +
+      '当前为本机空间。登录后会打开独立空间；需要迁移时，先导出备份，再登录并导入。</div></div>';
+    h += '<button class="row tap install-guide" data-act="install"><span class="grow">' +
+      '<span class="txt">添加到 iPhone 主屏幕</span><span class="sub">安装步骤与分享给朋友</span>' +
+      '</span><span class="chev">›</span></button></div>';
+
+    if (user) {
+      h += '<div class="sec-t">账号同步</div><div class="card"><div class="row">' +
+        '<div class="grow"><div class="txt">自动同步</div><div class="sub">断网时先保存在本机，联网后继续同步</div></div>' +
+        '<button class="hbtn" data-act="toggle-sync">' + (cfg.syncOn ? '已开启' : '已关闭') + '</button></div>' +
+        '<div class="row"><div class="grow"><div class="txt">立即同步</div><div class="sub">' + syncMsg() +
+        '</div></div><button class="hbtn" data-act="syncnow">同步</button></div></div>';
+    } else {
+
+    h += '<details class="legacy-sync"' + (GH.isSignedIn() ? ' open' : '') +
+      '><summary>与旧版电脑同步（GitHub）</summary>';
     // ---- 同步
     h += '<div class="sec-t">双端同步</div><div class="card">';
     h += '<div class="row"><div class="grow"><div class="txt">开启同步</div>' +
@@ -657,6 +682,9 @@
       '</div></div><span class="chev">›</span></div>';
     h += '</div>';
 
+    }
+
+    if (!user) h += '</details>';
     // ---- 外观
     h += '<div class="sec-t">外观</div><div class="card">';
     h += '<div class="row"><div class="grow"><div class="txt">主题</div></div>' +
@@ -675,13 +703,14 @@
     h += '<div class="row tap" data-act="import"><div class="grow"><div class="txt">从文件导入</div>' +
       '<div class="sub warn">会覆盖当前全部内容</div></div><span class="chev">›</span></div>';
     h += '<div class="row tap" data-act="wipe"><div class="grow"><div class="txt err">清空本机数据</div>' +
-      '<div class="sub">只清这台手机上的，Gist 和电脑端不动</div></div><span class="chev">›</span></div>';
+      '<div class="sub">只清本机缓存，云端内容不变</div></div><span class="chev">›</span></div>';
     h += '</div>';
 
     // ---- 关于
     h += '<div class="sec-t">关于</div><div class="card">';
     h += '<div class="row"><div class="grow"><div class="txt">小浮窗 · 手机版</div>' +
-      '<div class="sub">和电脑端共用一份同步文档，改动按「最后写入的赢」合并，' +
+      '<div class="sub">' + (user ? '当前使用邮箱账号云端同步。Windows 端仍使用原有 GitHub 同步通道。' : '原有 GitHub 通道可与电脑同步。') +
+      '改动按「最后写入的赢」合并，' +
       '而且只影响改到的那一条。同一时刻的冲突以删除为准，所以删掉的东西不会自己回来。</div></div></div>';
     // ★ 版本 / 自检（2026-10-16 加，2026-10-17 扩成三项）
     //   改完界面如果手机上看不到变化，翻到这一页看这行。
@@ -695,7 +724,7 @@
       '<span class="mono" id="ver-slot">…</span></div>';
     h += '</div>';
 
-    h += '<div class="hint" style="padding-bottom:20px">' +
+    if (!user && GH.isSignedIn()) h += '<div class="hint" style="padding-bottom:20px">' +
       'Token 只保存在这台手机上，<b>不会</b>写进同步文档 —— 电脑端和手机端各填各的。' +
       'Gist 是私密的，别人搜不到。' +
       '</div>';
@@ -732,7 +761,7 @@
 
   function syncMsg() {
     if (!S.cfg.syncOn) return '同步没开';
-    if (!GH.isSignedIn()) return '还没填 GitHub Token';
+    if (!S.canSync()) return S.accountId() ? '请重新登录' : '还没填 GitHub Token';
     var st = S.status;
     if (S.busy) return '正在同步…';
     if (st.ok === true) return '✓ 已同步 · ' + st.at + (st.pulled ? ' · 拉回 ' + st.pulled + ' 条' : '');
@@ -901,10 +930,23 @@
     var b = e.target.closest('[data-act]');
     if (!b) return;
     var a = b.dataset.act;
-    if (a === 'toggle-sync') {
+    if (a === 'account-in') {
+      openAccountSheet('login');
+    } else if (a === 'account-password') {
+      openAccountSheet('password');
+    } else if (a === 'install') {
+      openInstallGuide();
+    } else if (a === 'account-out') {
+      confirmSheet('退出账号', '退出后会回到本机空间。此账号的内容会保留在本机独立缓存和云端；尚未同步的改动请先点“立即同步”。',
+        '退出账号', function () {
+          if (ui.memoDirty) saveMemo();
+          closeSheet();
+          A.signOut().then(function () { toast('已退出账号'); }).catch(function (e) { toast(e.message, 5000); });
+        });
+    } else if (a === 'toggle-sync') {
       S.saveCfg({ syncOn: !S.cfg.syncOn });
       renderSet();
-      if (S.cfg.syncOn && GH.isSignedIn()) doSync();
+      if (S.cfg.syncOn && S.canSync()) doSync();
     } else if (a === 'checktoken') {
       doCheckToken();
     } else if (a === 'signout') {
@@ -924,7 +966,7 @@
     } else if (a === 'import') {
       doImport();
     } else if (a === 'wipe') {
-      confirmSheet('清空本机数据', '只清这台手机上的待办 / 日历 / 备忘。Gist 里的和电脑端不受影响，下次同步还会拉回来。',
+      confirmSheet('清空本机数据', '只清当前空间在这台手机上的待办 / 日历 / 备忘。云端不受影响，下次同步还会拉回来。',
         '清空', function () { S.wipe(); closeSheet(); render(); toast('已清空'); });
     }
   });
@@ -1061,6 +1103,100 @@
 
   /* ------------------------------------------------------------ 同步动作 */
 
+  function openInstallGuide() {
+    openSheet('<h3>把小浮窗放到主屏幕</h3><ol class="install-steps">' +
+      '<li>在 iPhone 的 Safari 中打开小浮窗。</li><li>点分享按钮，选择“添加到主屏幕”。</li>' +
+      '<li>如果显示“作为网页 App 打开”，保持开启，再点“添加”。</li>' +
+      '<li>从主屏幕图标打开，在“设置”登录自己的账号。</li></ol>' +
+      '<p class="hint">朋友用自己的邮箱注册，账号内容各自保存。账号云端同步暂未接入 Windows 版。</p>' +
+      '<button class="btn" id="share-app">分享给朋友</button><p class="hint" id="share-result" role="status"></p>',
+      function (root) {
+        $('#share-app', root).addEventListener('click', function () {
+          var url = location.origin + location.pathname;
+          if (navigator.share) navigator.share({ title: '小浮窗', text: '自己的待办、日历和备忘', url: url })
+            .catch(function (e) { if (e.name !== 'AbortError') $('#share-result', root).textContent = '请复制浏览器中的网页地址分享。'; });
+          else if (navigator.clipboard) navigator.clipboard.writeText(url).then(function () {
+            $('#share-result', root).textContent = '链接已复制，发给朋友即可。';
+          }).catch(function () { $('#share-result', root).textContent = url; });
+          else $('#share-result', root).textContent = url;
+        });
+      });
+  }
+
+  function openAccountSheet(mode) {
+    var titles = { login: '登录小浮窗', register: '创建账号', recover: '找回密码', password: '设置新密码' };
+    if (!A.configured()) {
+      openSheet('<h3>账号服务准备中</h3><p class="hint">管理员尚未完成云端配置。你可以继续使用本机功能；账号开通后，在这里注册和登录。</p>');
+      return;
+    }
+    var passwordOnly = mode === 'password', registering = mode === 'register';
+    var emailOnly = mode === 'recover';
+    var h = '<h3>' + titles[mode] + '</h3><p class="hint">' +
+      (passwordOnly ? '请设置至少 8 位的新密码。' : emailOnly ? '我们会向邮箱发送重置密码的链接。' :
+        '用自己的邮箱保存待办、日历和备忘。登录不会自动合并本机空间里的内容。') + '</p>' +
+      '<form id="account-form">';
+    if (!passwordOnly) h += '<label class="lbl" for="account-email">邮箱</label>' +
+      '<input id="account-email" type="email" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" required maxlength="254">';
+    if (!emailOnly) h += '<label class="lbl" for="account-password">' + (passwordOnly ? '新密码' : '密码') + '</label>' +
+      '<input id="account-password" type="password" autocomplete="' + (registering || passwordOnly ? 'new-password' : 'current-password') +
+      '" required minlength="' + (registering || passwordOnly ? '8' : '1') + '" maxlength="128">';
+    if (registering || passwordOnly) h += '<label class="lbl" for="account-repeat">再次输入密码</label>' +
+      '<input id="account-repeat" type="password" autocomplete="new-password" required minlength="8" maxlength="128">';
+    h += '<p id="account-result" class="hint account-result" role="status" aria-live="polite"></p>' +
+      '<button class="btn" type="submit">' + (mode === 'login' ? '登录' : registering ? '注册' : emailOnly ? '发送重置邮件' : '保存新密码') + '</button></form>';
+    if (!passwordOnly) h += '<div class="account-links">' +
+      (mode !== 'login' ? '<button class="hbtn" data-mode="login">返回登录</button>' :
+        '<button class="hbtn" data-mode="register">创建账号</button><button class="hbtn" data-mode="recover">忘记密码？</button>') + '</div>';
+    h += '<p class="hint">登录凭据由 Supabase 管理。内容保存在本机及你的云端账号中，请在自己的设备上使用。</p>';
+    openSheet(h, function (root) {
+      var form = $('#account-form', root), result = $('#account-result', root);
+      $$('[data-mode]', root).forEach(function (button) {
+        button.addEventListener('click', function () { openAccountSheet(button.dataset.mode); });
+      });
+      form.addEventListener('submit', function (event) {
+        event.preventDefault();
+        var email = $('#account-email', root), password = $('#account-password', root), repeat = $('#account-repeat', root);
+        if (repeat && repeat.value !== password.value) {
+          result.classList.add('err'); result.textContent = '两次密码不一致，请重新输入。'; repeat.focus(); return;
+        }
+        if (ui.memoDirty) saveMemo();
+        var controls = $$('button, input', root);
+        controls.forEach(function (el) { el.disabled = true; });
+        result.classList.remove('err'); result.textContent = '正在处理…';
+        Promise.resolve().then(function () {
+          if (passwordOnly) return A.updatePassword(password.value);
+          if (emailOnly) return A.recover(email.value.trim());
+          return registering ? A.signUp(email.value.trim(), password.value) : A.signIn(email.value.trim(), password.value);
+        }).then(function (data) {
+          if (!root.isConnected || $('#account-form') !== form) return;
+          if (emailOnly || (registering && !data.session)) {
+            result.textContent = emailOnly ? '如果邮箱已注册，会收到重置邮件，请检查收件箱和垃圾邮件。' :
+              '请检查邮箱中的确认邮件。确认后返回小浮窗登录；已注册的邮箱可以直接登录或找回密码。';
+            return;
+          }
+          closeSheet(); render(); toast(passwordOnly ? '密码已更新' : '已登录，正在同步自己的内容');
+          if (S.cfg.syncOn && S.canSync()) doSync();
+        }).catch(function (error) {
+          result.classList.add('err'); result.textContent = error.message || '操作未完成，请重试。';
+        }).finally(function () {
+          controls.forEach(function (el) { el.disabled = false; });
+        });
+      });
+    });
+  }
+
+  var accountSyncTimer = null;
+  function queueAccountSync() {
+    clearTimeout(accountSyncTimer);
+    var id = S.accountId();
+    if (!id || !S.cfg.syncOn || !S.canSync()) return;
+    accountSyncTimer = setTimeout(function run() {
+      if (id !== S.accountId() || !S.cfg.syncOn || !S.canSync() || navigator.onLine === false) return;
+      if (S.busy) { accountSyncTimer = setTimeout(run, 1200); return; }
+      S.sync().catch(function () { /* 设置页保留失败原因；本机改动留待重试。 */ });
+    }, 1500);
+  }
+
   /** 「连接」：验一下 Token 能不能用（顺便把登录名取回来显示）。 */
   function doCheckToken() {
     var inp = $('#set-token');
@@ -1141,6 +1277,7 @@
   }
 
   function doImport() {
+    var targetAccount = S.accountId();
     var inp = document.createElement('input');
     inp.type = 'file'; inp.accept = '.json,application/json';
     inp.addEventListener('change', function () {
@@ -1149,6 +1286,7 @@
       var rd = new FileReader();
       rd.onload = function () {
         try {
+          if (targetAccount !== S.accountId()) throw new Error('账号已切换，请重新选择备份文件。');
           var text = String(rd.result);
           var doc = JSON.parse(text);
           var raw = doc && doc.state ? doc.state : doc;
@@ -1162,6 +1300,7 @@
             ' 条，分组 ' + preview.groups.length + ' 个，日历 ' + dayCount +
             ' 天。导入后会覆盖当前全部内容。';
           confirmSheet('确认导入备份', detail, '导入并覆盖', function () {
+            if (targetAccount !== S.accountId()) { closeSheet(); toast('账号已切换，已取消导入。'); return; }
             S.importJson(text);
             closeSheet(); render(); toast('备份已恢复');
           });
@@ -1186,6 +1325,8 @@
 
   function boot() {
     S.load();
+    var initialUser = A.current();
+    if (initialUser) S.switchAccount(initialUser.id);
     var removedBlankTodos = removeBlankTodos();
 
     // ⚠⚠ 一次性数据修补（2026-10-19）：`done_at` 是 2026-10-17 才加上的字段，
@@ -1194,7 +1335,7 @@
     //   ⚠ 必须打标记：否则他以后取消勾选（done_at 被清空）会被强行改回 10-16。
     //   ⚠ 只有真补上了才打标记 —— 首次装 App 时状态还是空的，别把机会用掉。
     try {
-      if (!localStorage.getItem('fw_fix_done_at_v1')) {
+      if (!S.accountId() && !localStorage.getItem('fw_fix_done_at_v1')) {
         var FIX_DONE_AT = { '659fe6b0a4a8': '2026-10-16', '30029138f61f': '2026-10-16' };
         var nFix = 0;
         S.mutate(function (st) {
@@ -1223,24 +1364,50 @@
     var wantTab = q0 && q0.get('t');
     if (wantTab) switchTab(wantTab);
 
-    S.subscribe(function () { if (!ui.memoFocus) scheduleRender(); });
+    var seenVersion = S.version;
+    S.subscribe(function () {
+      if (!ui.memoFocus) scheduleRender();
+      if (S.version !== seenVersion) { seenVersion = S.version; queueAccountSync(); }
+    });
+    A.subscribe(function (user, event) {
+      var id = user && user.id || '';
+      if (id !== S.accountId()) {
+        if (ui.memoDirty) saveMemo();
+        clearTimeout(memoTimer); clearTimeout(accountSyncTimer);
+        ui.memoDirty = false; ui.memoFocus = false; ui.memoSaved = ''; ui.newTodoGroup = '';
+        ui.lastSync = 0;
+        S.switchAccount(id);
+        ui.memoSaved = htmlToText(S.state.memo_html);
+        $('#memo').value = ui.memoSaved;
+        $('#todo-inp').value = '';
+        applyTheme(S.cfg.theme);
+        // 用户在其他标签页登录时也关闭旧空间的编辑器，防止保存到新账号。
+        var accountForm = $('#account-form');
+        if (!accountForm) closeSheet();
+        render();
+        if (id) queueAccountSync();
+      }
+      if (event === 'PASSWORD_RECOVERY') setTimeout(function () { openAccountSheet('password'); }, 0);
+    });
+    window.addEventListener('online', queueAccountSync);
+    if (A.recovering()) openAccountSheet('password');
 
     // ⚠ 启动时顺手验一次 Token（把登录名取回来显示）。失败不弹错 ——
     //   手机可能只是暂时没网，等真去同步时再报。
-    if (GH.isSignedIn() && !GH.getCfg().user) {
+    if (!S.accountId() && GH.isSignedIn() && !GH.getCfg().user) {
       GH.verify().then(function () { if (ui.tab === 'set') renderSet(); })
         .catch(function () {});
     }
 
     render();
     if (removedBlankTodos) toast('已清理 ' + removedBlankTodos + ' 条空白任务');
-    if (S.cfg.syncOn && GH.isSignedIn()) {
+    if (S.cfg.syncOn && S.canSync()) {
       S.sync().then(function (r) {
         ui.lastSync = Date.now();
         var removed = removeBlankTodos();
         render();
         if (removed) toast('已清理 ' + removed + ' 条空白任务');
-        else if (r.pulled) toast('已从电脑端拉回 ' + r.pulled + ' 条');
+        else if (r.pulled) toast('已拉回 ' + r.pulled + ' 条');
       }).catch(function (e) { render(); toast('同步失败：' + e.message, 4000); });
     }
 
@@ -1249,7 +1416,7 @@
     //   明确时机跑；并且 60 秒内不重复跑，免得来回切 App 时反复打网络。
     document.addEventListener('visibilitychange', function () {
       if (document.visibilityState !== 'visible') return;
-      if (!S.cfg.syncOn || !GH.isSignedIn() || S.busy) return;
+      if (!S.cfg.syncOn || !S.canSync() || S.busy) return;
       if (Date.now() - ui.lastSync < 60000) return;
       S.sync().then(function (r) {
         ui.lastSync = Date.now();
@@ -1359,8 +1526,11 @@
     }
   }
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
-  else boot();
+  function start() {
+    A.ready.catch(function (error) { toast(error.message, 6000); }).then(boot);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+  else start();
 
   // ⚠ 给探针用的后门：这两个转换函数是「两端数据不漂移」的关键，
   //   必须能被自动化测试单独调用（见 softwork/_probe/_memo_roundtrip.py）。

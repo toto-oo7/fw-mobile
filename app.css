@@ -1,11 +1,3 @@
-@font-face {
-  font-family: "Source Code Pro";
-  src: url("SourceCodePro-Variable.woff2") format("woff2");
-  font-style: normal;
-  font-weight: 200 900;
-  font-display: swap;
-  unicode-range: U+0000-024F;
-}
 /* ============================================================================
  * app.css —— 手机版样式
  * ============================================================================
@@ -18,6 +10,15 @@
  *
  * ⚠ 颜色和桌面端保持一致：柔和蓝灰底 + 清晰白色卡片 + 系统蓝强调色。
  */
+
+@font-face {
+  font-family: "Source Code Pro";
+  src: url("SourceCodePro-Variable.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 200 900;
+  font-display: swap;
+  unicode-range: U+0000-024F;
+}
 
 :root {
   --accent: #2868DF;
@@ -439,6 +440,18 @@ textarea { resize: none; line-height: 1.55; }
 
 .empty { text-align: center; color: var(--text-2); font-size: 14px; padding: 40px 20px; }
 .hint { font-size: 12.5px; color: var(--text-2); padding: 6px 4px; line-height: 1.5; }
+.install-guide { width: 100%; text-align: left; font: inherit; color: var(--text); background: none; border: 0; cursor: pointer; }
+.install-guide .txt, .install-guide .sub { display: block; }
+.install-steps { padding-left: 24px; line-height: 1.7; }
+.install-steps li { padding: 4px 0; }
+.account-links { display: flex; justify-content: space-between; gap: 12px; margin-top: 12px; }
+.account-result { min-height: 30px; margin-block: 8px; }
+#account-form input { font-size: 16px; }
+#account-form button[type="submit"] { min-height: 44px; }
+.legacy-sync { margin-top: 18px; }
+.legacy-sync summary { min-height: 44px; padding: 12px 4px; font-size: 14px; color: var(--text-2); cursor: pointer; }
+.grow { min-width: 0; }
+#set-body .txt { overflow-wrap: anywhere; }
 .warn { color: var(--orange); }
 .err { color: var(--red); }
 .ok { color: var(--green); }

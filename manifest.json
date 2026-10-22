@@ -1,7 +1,7 @@
 {
   "name": "小浮窗",
   "short_name": "小浮窗",
-  "description": "和电脑端双向同步的待办清单 / 日历备注 / 临时备忘录",
+  "description": "自己的待办、日历与备忘录，支持邮箱账号云端同步和主屏幕安装",
   "lang": "zh-CN",
   "dir": "ltr",
   "start_url": "./",

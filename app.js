@@ -27,7 +27,7 @@
        ① 这行常量  → 证明 app.js 是新的
        ② #tabs 的 computed position → 证明 app.css 是新的（旧版是 static，v8 起是 fixed）
        ③ 底栏底 / 视口高 → 直接量「到底贴没贴底」，不靠肉眼判断 */
-  var APP_BUILD = 'b21';
+  var APP_BUILD = 'b22';
 
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
@@ -620,7 +620,8 @@
     var user = A.current();
     h += '<div class="row"><div class="grow"><div class="txt">' +
       (user ? esc(user.email) : '登录小浮窗') + '</div><div class="sub">' +
-      (user ? '当前内容保存在你的独立账号空间' : '登录后，在不同 iPhone 上同步自己的内容') +
+      (user ? (A.initializing && A.initializing() ? '正在恢复账号连接，先显示本机已保存的内容' :
+        '当前内容保存在你的独立账号空间') : '登录后，在不同 iPhone 上同步自己的内容') +
       '</div></div><button class="hbtn" data-act="' + (user ? 'account-out' : 'account-in') + '">' +
       (user ? '退出' : '登录 / 注册') + '</button></div>';
     if (A.recovering()) h += '<button class="row tap install-guide" data-act="account-password">设置新密码</button>';
@@ -1374,7 +1375,7 @@
       if (!ui.memoFocus) scheduleRender();
       if (S.version !== seenVersion) { seenVersion = S.version; queueAccountSync(); }
     });
-    A.subscribe(function (user, event) {
+    function accountChanged(user, event) {
       var id = user && user.id || '';
       if (id !== S.accountId()) {
         if (ui.memoDirty) saveMemo();
@@ -1393,6 +1394,15 @@
         if (id) queueAccountSync();
       }
       if (event === 'PASSWORD_RECOVERY') setTimeout(function () { openAccountSheet('password'); }, 0);
+    }
+    A.subscribe(accountChanged);
+    A.ready.then(function () {
+      accountChanged(A.current(), 'SESSION_READY');
+      render();
+      queueAccountSync();
+    }).catch(function (error) {
+      render();
+      toast('账号连接暂未完成，本机内容仍可使用。' + (error.message || ''), 6000);
     });
     window.addEventListener('online', queueAccountSync);
     if (A.recovering()) openAccountSheet('password');
@@ -1532,7 +1542,14 @@
   }
 
   function start() {
-    A.ready.catch(function (error) { toast(error.message, 6000); }).then(boot);
+    try {
+      // 本机内容先显示；令牌刷新和云端恢复不能阻塞整个界面。
+      boot();
+      if (window.FW_STARTUP) window.FW_STARTUP.done();
+    } catch (error) {
+      if (window.FW_STARTUP) window.FW_STARTUP.fail('页面未能完成加载，请重新打开。本机数据没有清除。');
+      console.error('[startup]', error);
+    }
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
   else start();

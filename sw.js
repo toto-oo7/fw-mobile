@@ -31,7 +31,9 @@
  *       换来的是：**改完打开一次就是新版**，不用关掉重开、不用等下一次。
  */
 /* v17：电脑 / 手机统一视觉；卡片层级、日历、底栏和深色主题精修（2026-10-21） */
-var CACHE = 'fw-mobile-v21-soft-yellow';
+var CACHE = 'fw-mobile-v22-startup';
+var CORE = ['./index.html', './app.css', './app.js', './records.js', './gist.js',
+  './cloud-config.js', './supabase.js', './account.js', './store.js'];
 
 var ASSETS = [
   './',
@@ -54,10 +56,15 @@ var ASSETS = [
 self.addEventListener('install', function (e) {
   e.waitUntil(
     caches.open(CACHE).then(function (c) {
-      // ⚠ 逐个 add，任何一个失败（比如某个图标还没生成）都不至于整个装不上
-      return Promise.all(ASSETS.map(function (u) {
-        return c.add(new Request(u, { cache: 'reload' })).catch(function () {});
-      }));
+      // 核心文件必须完整，再接管页面；图标和字体失败不阻塞安装。
+      return Promise.all(CORE.map(function (u) {
+        return c.add(new Request(u, { cache: 'reload' }));
+      })).then(function () {
+        var optional = Promise.all(ASSETS.filter(function (u) { return CORE.indexOf(u) < 0; }).map(function (u) {
+          return c.add(new Request(u, { cache: 'reload' })).catch(function () {});
+        }));
+        return Promise.race([optional, new Promise(function (resolve) { setTimeout(resolve, 7000); })]);
+      });
     }).then(function () { return self.skipWaiting(); })
   );
 });
@@ -65,8 +72,10 @@ self.addEventListener('install', function (e) {
 self.addEventListener('activate', function (e) {
   e.waitUntil(
     caches.keys().then(function (keys) {
+      var owned = keys.filter(function (k) { return k.indexOf('fw-mobile-') === 0 && k !== CACHE; });
+      var previous = owned[owned.length - 1];
       return Promise.all(keys.map(function (k) {
-        return k === CACHE ? null : caches.delete(k);
+        return k.indexOf('fw-mobile-') === 0 && k !== CACHE && k !== previous ? caches.delete(k) : null;
       }));
     }).then(function () { return self.clients.claim(); })
   );
@@ -95,27 +104,50 @@ self.addEventListener('fetch', function (e) {
   //     再叠上 GitHub Pages 的 CDN 延迟，快照很可能就是旧文件 → 表现成「改了没生效」。
   //   `cache: 'no-cache'` = 允许用浏览器缓存，但**必须先回服务器验证**（ETag → 304 不重传 body）。
   //   所以在线时拿到的一定是最新文件，流量也没浪费。
-  //   只有 fetch 直接失败（真离线 / DNS 挂了）才回退缓存。
+  //   已有缓存时最多等网络 4 秒；网络挂起也能打开本机界面。
   var fresh;
   try {
     fresh = new Request(req, { cache: 'no-cache' });
   } catch (err) {
     fresh = req;
   }
-  e.respondWith(
-    fetch(fresh).then(function (r) {
-      if (r && r.ok && r.type === 'basic') {
-        var copy = r.clone();
-        caches.open(CACHE).then(function (c) { c.put(req, copy); });
-      }
-      return r;
-    }).catch(function () {
-      // 离线：吃缓存（这就是「装到主屏也能开」的来源）
-      return caches.match(req, { ignoreSearch: true }).then(function (hit) {
-        if (hit) return hit;
-        if (req.mode === 'navigate') return caches.match('./index.html');
-        return new Response('', { status: 504 });
+  function offline() {
+    if (req.mode !== 'navigate') return new Response('', { status: 504 });
+    return new Response('<!doctype html><html lang="zh-CN"><meta charset="utf-8">' +
+      '<meta name="viewport" content="width=device-width,initial-scale=1"><title>小浮窗</title>' +
+      '<style>body{margin:0;padding:64px 24px;font:16px/1.7 sans-serif;background:#FFF8DC;color:#302E25}' +
+      'a{color:#80611C}@media(prefers-color-scheme:dark){body{background:#11141A;color:#F5F7FA}a{color:#5A9BFF}}</style>' +
+      '<h2>暂时没有连上网络</h2><p>页面文件未加载完整。本机数据没有清除，请联网后重新打开。</p>' +
+      '<a href="./?retry=b22">重新打开小浮窗</a></html>',
+      { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+  }
+  var network = fetch(fresh).then(function (response) {
+    if (!response || !response.ok) throw new Error('Page unavailable');
+    var copy = response.clone();
+    return caches.open(CACHE).then(function (c) { return c.put(req, copy); })
+      .catch(function () { /* 缓存空间不足仍可直接使用网络响应。 */ })
+      .then(function () { return response; });
+  });
+  e.waitUntil(network.then(function () {}, function () {}));
+  e.respondWith(caches.open(CACHE).then(function (c) {
+    return c.match(req, { ignoreSearch: true }).then(function (hit) {
+      if (!hit && req.mode === 'navigate') return c.match('./index.html');
+      return hit;
+    });
+  }).then(function (hit) {
+    if (hit) return hit;
+    return caches.match(req, { ignoreSearch: true }).then(function (old) {
+      if (!old && req.mode === 'navigate') return caches.match('./index.html');
+      return old;
+    });
+  }).catch(function () { return null; }).then(function (hit) {
+    return new Promise(function (resolve) {
+      var timer = setTimeout(function () { resolve(hit || offline()); }, hit ? 4000 : 12000);
+      network.then(function (response) {
+        clearTimeout(timer); resolve(response);
+      }, function () {
+        clearTimeout(timer); resolve(hit || offline());
       });
-    })
-  );
+    });
+  }));
 });

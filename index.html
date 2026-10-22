@@ -12,6 +12,47 @@
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="description" content="小浮窗 —— 待办、日历与备忘录，支持独立邮箱账号和添加到 iPhone 主屏幕。">
 <script>if (navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) document.documentElement.classList.add('pwa-standalone');</script>
+<script>
+(function () {
+  var finished = false, timer;
+  function show(message) {
+    if (finished) return;
+    if (!document.body) { timer = setTimeout(function () { show(message); }, 250); return; }
+    var box = document.getElementById('startup-status');
+    if (!box) {
+      box = document.createElement('section');
+      box.id = 'startup-status';
+      box.setAttribute('role', 'status');
+      box.style.cssText = 'position:fixed;inset:0;z-index:1000;padding:80px 24px 24px;background:var(--bg,#FFF8DC);color:var(--text,#302E25);font:16px/1.7 -apple-system,sans-serif';
+      var heading = document.createElement('h2');
+      heading.textContent = '小浮窗正在加载';
+      box.appendChild(heading);
+      box.appendChild(document.createElement('p'));
+      var retry = document.createElement('button');
+      retry.textContent = '重新打开';
+      retry.style.cssText = 'padding:12px 22px;font:inherit;border:0;border-radius:12px;background:var(--accent-fill,#F0D98A);color:var(--accent-fg,#443710)';
+      retry.addEventListener('click', function () { location.reload(); });
+      box.appendChild(retry);
+      document.body.appendChild(box);
+    }
+    box.querySelector('p').textContent = message;
+  }
+  window.FW_STARTUP = {
+    done: function () {
+      finished = true; clearTimeout(timer);
+      var box = document.getElementById('startup-status');
+      if (box) box.remove();
+    },
+    fail: function (message) { clearTimeout(timer); show(message); }
+  };
+  timer = setTimeout(function () { show('网络较慢，正在读取页面文件。你可以稍等或重新打开，本机内容会保留。'); }, 7000);
+  window.addEventListener('error', function (event) {
+    if (!finished && (event.target && event.target.tagName === 'SCRIPT' || event.message)) {
+      window.FW_STARTUP.fail('页面文件未加载完整，请重新打开。请勿清除网站数据。');
+    }
+  }, true);
+})();
+</script>
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" href="icons/icon-192.png">

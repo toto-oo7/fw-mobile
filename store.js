@@ -92,7 +92,10 @@
     },
 
     accountId: function () { return accountId; },
-    canSync: function () { return accountId ? !!(global.Account.current()) : GH.isSignedIn(); },
+    canSync: function () {
+      return accountId ? !!global.Account.current() &&
+        !(global.Account.initializing && global.Account.initializing()) : GH.isSignedIn();
+    },
     switchAccount: function (id) {
       id = id || '';
       if (id === accountId) return false;

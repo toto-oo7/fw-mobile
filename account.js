@@ -3,7 +3,18 @@
   'use strict';
   var cfg = global.FW_CLOUD_CONFIG || {};
   var client = null, user = null, listeners = [], recovering = false;
-  var ready = Promise.resolve();
+  var ready = Promise.resolve(), initializing = false;
+  function cachedUser() {
+    // 只选择离线缓存所属空间；云端请求仍由 SDK 校验并提供会话令牌。
+    try {
+      var saved = JSON.parse(localStorage.getItem('fw.auth.v1') || 'null');
+      var account = saved && saved.user;
+      if (account && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(account.id)) {
+        return { id: account.id, email: typeof account.email === 'string' ? account.email : '' };
+      }
+    } catch (error) { /* 无缓存时使用原本机空间，不创建或覆盖任何账号内容。 */ }
+    return null;
+  }
   function message(error) {
     var code = error && error.code;
     var messages = {
@@ -38,6 +49,8 @@
     listeners.forEach(function (fn) { fn(user, event); });
   }
   if (configured() && global.supabase) {
+    user = cachedUser();
+    initializing = true;
     client = global.supabase.createClient(cfg.url, cfg.publishableKey, {
       auth: { storageKey: 'fw.auth.v1', persistSession: true, autoRefreshToken: true,
         detectSessionInUrl: true, flowType: 'implicit' }
@@ -48,13 +61,18 @@
     });
     ready = client.auth.getSession().then(function (result) {
       var data = checked(result);
-      user = data.session && data.session.user || null;
+      initializing = false;
+      publish('SESSION_READY', data.session);
+    }).catch(function (error) {
+      initializing = false;
+      throw error;
     });
   }
   function redirect() { return location.origin + location.pathname; }
   global.Account = {
     ready: ready, configured: configured,
     current: function () { return user; },
+    initializing: function () { return initializing; },
     recovering: function () { return recovering; },
     subscribe: function (fn) { listeners.push(fn); },
     signIn: function (email, password) {

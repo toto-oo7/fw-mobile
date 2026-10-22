@@ -1,3 +1,11 @@
+@font-face {
+  font-family: "Source Code Pro";
+  src: url("SourceCodePro-Variable.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 200 900;
+  font-display: swap;
+  unicode-range: U+0000-024F;
+}
 /* ============================================================================
  * app.css —— 手机版样式
  * ============================================================================
@@ -93,7 +101,7 @@ html { background: var(--card); }
 html, body {
   margin: 0; padding: 0; height: 100%;
   color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC",
+  font-family: "Source Code Pro", -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC",
                "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   font-size: 16px; line-height: 1.45;
   -webkit-font-smoothing: antialiased;
@@ -434,7 +442,7 @@ textarea { resize: none; line-height: 1.55; }
 .warn { color: var(--orange); }
 .err { color: var(--red); }
 .ok { color: var(--green); }
-.mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12px; word-break: break-all; }
+.mono { font-family: "Source Code Pro", ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12px; word-break: break-all; }
 .spin { display: inline-block; animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .pill {

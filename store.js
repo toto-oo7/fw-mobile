@@ -22,6 +22,8 @@
   var LS_STATE = 'fw.state.v1';
   var LS_SYNC = 'fw.syncstate.v1';
   var LS_CFG = 'fw.cfg.v1';
+  var accountId = '', accountEpoch = 0;
+  function scoped(key) { return accountId ? key + '.user.' + accountId : key; }
 
   var DEFAULT_CFG = {
     syncOn: false,
@@ -67,20 +69,21 @@
     cfg: Object.assign({}, DEFAULT_CFG),
     status: { ok: null, at: '', text: '还没同步过', pulled: 0 },
     busy: false,
+    version: 0,
     _subs: [],
 
     /* ------------------------------------------------------------ 生命周期 */
 
     load: function () {
-      this.cfg = Object.assign({}, DEFAULT_CFG, lsGet(LS_CFG, {}));
-      this.state = R.normalizeState(lsGet(LS_STATE, null));
-      var ss = lsGet(LS_SYNC, null);
+      this.cfg = Object.assign({}, DEFAULT_CFG, { syncOn: !!accountId }, lsGet(scoped(LS_CFG), {}));
+      this.state = R.normalizeState(lsGet(scoped(LS_STATE), null));
+      var ss = lsGet(scoped(LS_SYNC), null);
       this.syncState = (ss && typeof ss === 'object' && ss.records)
         ? ss : { records: {}, at: '', gist: '' };
       // ⚠ 换了 Gist 就等于「重新配对」：同步状态必须一起清掉。
       //   不清的话本机还记着「这些记录我早就知道了」，会把旧时间戳带进新配对，
       //   第一轮同步的行为就取决于上一条 Gist 的残留 —— 很难解释。
-      var cur = (GH && GH.getCfg().gist) || '';
+      var cur = accountId ? 'account:' + accountId : (GH && GH.getCfg().gist) || '';
       if ((this.syncState.gist || '') !== cur) {
         this.syncState = { records: {}, at: '', gist: cur };
         this.saveSyncState();
@@ -88,18 +91,34 @@
       return this;
     },
 
+    accountId: function () { return accountId; },
+    canSync: function () { return accountId ? !!(global.Account.current()) : GH.isSignedIn(); },
+    switchAccount: function (id) {
+      id = id || '';
+      if (id === accountId) return false;
+      accountEpoch++;
+      accountId = id;
+      this.busy = false;
+      this.status = { ok: null, at: '', text: '还没同步过', pulled: 0 };
+      this.load();
+      this.notify();
+      return true;
+    },
+
     saveCfg: function (patch) {
       Object.keys(patch || {}).forEach(function (k) { Store.cfg[k] = patch[k]; }, this);
-      lsSet(LS_CFG, this.cfg);
+      lsSet(scoped(LS_CFG), this.cfg);
       this.notify();
       return this.cfg;
     },
 
-    saveState: function () { lsSet(LS_STATE, this.state); },
+    saveState: function () {
+      if (!lsSet(scoped(LS_STATE), this.state)) throw new Error('本机存储空间不足，请先导出备份。');
+    },
 
     saveSyncState: function () {
-      this.syncState.gist = (GH && GH.getCfg().gist) || '';
-      lsSet(LS_SYNC, this.syncState);
+      this.syncState.gist = accountId ? 'account:' + accountId : (GH && GH.getCfg().gist) || '';
+      lsSet(scoped(LS_SYNC), this.syncState);
     },
 
     /* ------------------------------------------------------------ 订阅 */
@@ -121,6 +140,9 @@
       fn(this.state);
       this.state = R.normalizeState(this.state);
       this.saveState();
+      // 账号模式在改动发生时记录时间，离线编辑不会在下次同步时假装刚发生。
+      if (accountId) { this.collectLocal(); this.saveSyncState(); }
+      this.version++;
       this.notify();
     },
 
@@ -189,11 +211,12 @@
 
     sync: function (opts) {
       opts = opts || {};
-      var self = this;
+      var self = this, epoch = accountEpoch;
       if (!this.cfg.syncOn) {
         return this._reject('同步没打开');
       }
       if (this.busy) return Promise.resolve(this.status);
+      if (accountId) return this._syncAccount();
       if (!GH.isSignedIn()) {
         return this._reject('还没连接 GitHub（设置 → 同步设置里填 Token）');
       }
@@ -205,13 +228,18 @@
         // ⚠ 没填 Gist 地址就自动建一个**私密** Gist（和桌面端 `_ensure_gist` 一致），
         //   省掉「先去 GitHub 建一个再抄地址」这一步。建完地址会落进本机配置。
         .then(function () { return GH.getCfg().gist ? null : GH.createGist(); })
-        .then(function () { return self._syncOnce(0); })
+        .then(function () {
+          if (epoch !== accountEpoch) throw new Error('账号已切换，已取消旧空间同步。');
+          return self._syncOnce(0);
+        })
         .then(function (res) {
+          if (epoch !== accountEpoch) throw new Error('账号已切换，已取消旧空间同步。');
           self.busy = false;
           self.status = res;
           self.notify();
           return res;
         }).catch(function (e) {
+          if (epoch !== accountEpoch) throw e;
           self.busy = false;
           self.status = { ok: false, at: R.stamp(), text: '', pulled: 0, error: String(e.message || e) };
           self.notify();
@@ -219,11 +247,49 @@
         });
     },
 
+    _syncAccount: function () {
+      var self = this, id = accountId, epoch = accountEpoch;
+      if (!global.Account.current() || global.Account.current().id !== id) {
+        return this._reject('登录已过期，请重新登录。');
+      }
+      this.busy = true;
+      this.status = { ok: null, at: R.stamp(), text: '正在同步…', pulled: 0 };
+      this.notify();
+      var sent = this.collectLocal();
+      this.saveSyncState();
+      return global.Account.merge(sent, id).then(function (remote) {
+        if (epoch !== accountEpoch) throw new Error('账号已切换，已取消旧账号同步。');
+        // 请求期间仍可编辑；保留在发送之后发生的本机改动。
+        var current = self.collectLocal();
+        var merged = R.mergeRecords(current, remote);
+        var before = R.hashOf(R.recordsFromState(self.state));
+        self.state = R.applyRecordsToState(self.state, merged);
+        self.saveState();
+        self.refreshState(merged);
+        self.saveSyncState();
+        self.busy = false;
+        self.status = { ok: true, at: R.stamp(), pulled: Object.keys(remote).filter(function (key) {
+          return !sent[key] || R.ts(sent[key].t) !== R.ts(remote[key].t) ||
+            !!sent[key].x !== !!remote[key].x || R.hashOf(sent[key].d) !== R.hashOf(remote[key].d);
+        }).length, changed: before !== R.hashOf(R.recordsFromState(self.state)) };
+        self.notify();
+        return self.status;
+      }).catch(function (error) {
+        if (epoch === accountEpoch) {
+          self.busy = false;
+          self.status = { ok: false, at: R.stamp(), error: String(error.message || error), pulled: 0 };
+          self.notify();
+        }
+        throw error;
+      });
+    },
+
     /** 真正跑一轮。`attempt` 用来做「写冲突 → 重读重合并」的重试。 */
     _syncOnce: function (attempt) {
-      var self = this;
+      var self = this, epoch = accountEpoch;
 
       return GH.readFile().then(function (rf) {
+        if (epoch !== accountEpoch) throw new Error('账号已切换，已取消旧空间同步。');
         var remote = {};
         var doc = null;
         if (rf.text) {
@@ -257,6 +323,7 @@
         };
 
         return GH.writeFile(JSON.stringify(out, null, 2)).then(function (w) {
+          if (epoch !== accountEpoch) throw new Error('账号已切换，已取消旧空间同步。');
           if (w.conflict && attempt < 2) {
             // ⚠ 另一端在我们读完之后又写了 → 重读一遍重新合并，别硬盖。
             //   Gist 的 PATCH 没有条件写，所以 `conflict` 目前永远是 false；

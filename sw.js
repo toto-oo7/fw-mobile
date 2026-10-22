@@ -31,15 +31,19 @@
  *       换来的是：**改完打开一次就是新版**，不用关掉重开、不用等下一次。
  */
 /* v17：电脑 / 手机统一视觉；卡片层级、日历、底栏和深色主题精修（2026-10-21） */
-var CACHE = 'fw-mobile-v18';
+var CACHE = 'fw-mobile-v19-font1';
 
 var ASSETS = [
   './',
   './index.html',
   './app.css',
+  './SourceCodePro-Variable.woff2',
   './app.js',
   './records.js',
   './gist.js',
+  './cloud-config.js',
+  './supabase.js',
+  './account.js',
   './store.js',
   './manifest.json',
   './icons/icon-180.png',

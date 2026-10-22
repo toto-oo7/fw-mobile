@@ -8,7 +8,7 @@
  *   · 深/浅主题走 CSS 变量，跟随系统
  *   · 安全区（刘海 + 底部小横条）全留出来，装到主屏后不会被切掉
  *
- * ⚠ 颜色和桌面端保持一致：柔和蓝灰底 + 清晰白色卡片 + 系统蓝强调色。
+ * 手机版浅色：淡鹅黄纸面 + 暖白卡片；深色主题保留原配色。
  */
 
 @font-face {
@@ -21,24 +21,30 @@
 }
 
 :root {
-  --accent: #2868DF;
-  --accent-fg: #FFFFFF;
-  --accent-dim: rgba(52, 120, 246, .14);
-  --accent-soft: #EAF1FF;
-  --bg: #F5F7FB;
-  --card: #FFFFFF;
-  --card-2: #F0F3F8;
-  --text: #182230;
-  --text-2: #596B80;
-  --text-3: #B4BDC9;
-  --line: rgba(40, 55, 75, .11);
+  --accent: #80611C;
+  --accent-fill: #F0D98A;
+  --accent-fg: #443710;
+  --accent-dim: rgba(174, 138, 34, .18);
+  --accent-soft: #F6EAB8;
+  --native-accent: var(--accent);
+  --tab-shadow: rgba(112, 87, 25, .08);
+  --toast-bg: rgba(70, 57, 24, .96);
+  --toast-fg: #FFF8DC;
+  --selected-done-dot: #74684D;
+  --bg: #FFF8DC;
+  --card: #FFFDF3;
+  --card-2: #FFF1C2;
+  --text: #302E25;
+  --text-2: #74684D;
+  --text-3: #8C7C54;
+  --line: rgba(103, 85, 32, .16);
   --red: #EF4D56;
   --green: #2DBE72;
   --orange: #F59A23;
   /* ⚠ 分组头底色：必须和**卡片**（白）拉开差距。之前直接用 --card-2 (#F2F2F7)，
      而页面底色恰好也是 #F2F2F7 —— 组头一贴上去就看不见了，
      toto 当初要的「一眼看出和子项的差别」就没了。这里单独给一个更实的灰。 */
-  --group-bg: #EDF3FF;
+  --group-bg: #F5E9BB;
   --radius: 16px;
   /* ⚠ 底栏总高 = 这个值 + 底部安全区。52 偏高了，内容只有一行图标 + 一行字，
      下面会剩一大截空；46 刚好（2026-10-15 toto 反馈「底下空白太大」）。 */
@@ -55,6 +61,7 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --accent: #5A9BFF;
+    --accent-fill: var(--accent);
     --accent-fg: #102036;
     --accent-dim: rgba(90, 155, 255, .22);
     --accent-soft: #223D63;
@@ -69,19 +76,30 @@
     --green: #45D483;
     --orange: #FFAE42;
     --group-bg: #252D39;
+    --native-accent: auto;
+    --tab-shadow: rgba(44, 62, 88, .06);
+    --toast-bg: rgba(30, 30, 32, .94);
+    --toast-fg: #FFFFFF;
+    --selected-done-dot: rgba(255, 255, 255, .75);
   }
 }
 
 /* 手动切换主题时覆盖系统设置 */
 html[data-theme="light"] {
-  --accent: #2868DF; --accent-fg:#FFFFFF; --accent-dim: rgba(52,120,246,.14); --accent-soft:#EAF1FF;
-  --bg: #F5F7FB; --card: #FFFFFF; --card-2: #F0F3F8;
-  --text: #182230; --text-2: #596B80; --text-3: #B4BDC9;
-  --line: rgba(40,55,75,.11); --red: #EF4D56; --green: #2DBE72; --orange: #F59A23;
-  --group-bg: #EDF3FF;
+  --accent: #80611C; --accent-fill:#F0D98A; --accent-fg:#443710; --accent-dim: rgba(174,138,34,.18); --accent-soft:#F6EAB8;
+  --native-accent: var(--accent); --tab-shadow: rgba(112,87,25,.08);
+  --toast-bg: rgba(70,57,24,.96); --toast-fg:#FFF8DC;
+  --selected-done-dot: #74684D;
+  --bg: #FFF8DC; --card: #FFFDF3; --card-2: #FFF1C2;
+  --text: #302E25; --text-2: #74684D; --text-3: #8C7C54;
+  --line: rgba(103,85,32,.16); --red: #EF4D56; --green: #2DBE72; --orange: #F59A23;
+  --group-bg: #F5E9BB;
 }
 html[data-theme="dark"] {
   --accent: #5A9BFF; --accent-fg:#102036; --accent-dim: rgba(90,155,255,.22); --accent-soft:#223D63;
+  --accent-fill: var(--accent); --native-accent: auto; --tab-shadow: rgba(44,62,88,.06);
+  --toast-bg: rgba(30,30,32,.94); --toast-fg:#FFFFFF;
+  --selected-done-dot: rgba(255,255,255,.75);
   --bg: #11141A; --card: #1D222A; --card-2: #272D37;
   --text: #F5F7FA; --text-2: #9BA5B3; --text-3: #596574;
   --line: rgba(151,166,185,.18); --red: #FF6262; --green: #45D483; --orange: #FFAE42;
@@ -237,7 +255,7 @@ html.pwa-standalone body {
   position: relative;
 }
 .dot-check::after { content: ''; position: absolute; inset: -9px; }
-.dot-check.on { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.dot-check.on { background: var(--accent-fill); border-color: var(--accent); color: var(--accent-fg); }
 .dot-check:active { transform: scale(.88); }
 
 /* 重要程度：○ / ● / ●● / ●●●（和桌面端同一套字形，别用 emoji） */
@@ -299,6 +317,7 @@ input:not([type=checkbox]):not([type=radio]), textarea, select {
   -webkit-appearance: none; appearance: none;
 }
 input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent-dim); }
+input[type=checkbox], input[type=radio] { accent-color: var(--native-accent); }
 input::placeholder, textarea::placeholder { color: var(--text-2); opacity: 1; }
 textarea { resize: none; line-height: 1.55; }
 
@@ -317,7 +336,7 @@ textarea { resize: none; line-height: 1.55; }
   padding: 11px 8px; font-size: 14px;
 }
 .addbtn {
-  border: none; background: var(--accent); color: var(--accent-fg);
+  border: none; background: var(--accent-fill); color: var(--accent-fg);
   width: 42px; height: 42px; border-radius: 14px; font-size: 23px; line-height: 1;
   flex: 0 0 auto; cursor: pointer; font-family: inherit;
 }
@@ -326,7 +345,7 @@ textarea { resize: none; line-height: 1.55; }
 /* ---------------------------------------------------------------- 按钮 */
 
 .btn {
-  border: none; background: var(--accent); color: var(--accent-fg);
+  border: none; background: var(--accent-fill); color: var(--accent-fg);
   border-radius: 10px; padding: 11px 16px; font-size: 15px; font-weight: 500;
   font-family: inherit; cursor: pointer; width: 100%;
 }
@@ -351,13 +370,13 @@ textarea { resize: none; line-height: 1.55; }
 }
 #calgrid .d.out { color: var(--text-3); }
 #calgrid .d.today { color: var(--accent); font-weight: 700; }
-#calgrid .d.sel { background: var(--accent); color: var(--accent-fg); font-weight: 600; }
+#calgrid .d.sel { background: var(--accent-fill); color: var(--accent-fg); font-weight: 600; }
 #calgrid .d .pd { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
 #calgrid .d.sel .pd { background: var(--accent-fg); }
 #calgrid .d.today:not(.sel) .pd { background: var(--accent); }
 /* 灰点 = 这天在待办清单里划掉过东西（和桌面的灰圈是同一件事） */
 #calgrid .d .fd { width: 5px; height: 5px; border-radius: 50%; background: var(--text-3); }
-#calgrid .d.sel .fd { background: rgba(255, 255, 255, .75); }
+#calgrid .d.sel .fd { background: var(--selected-done-dot, rgba(255, 255, 255, .75)); }
 
 /* ---------------------------------------------------------------- 标签栏 */
 
@@ -369,7 +388,7 @@ textarea { resize: none; line-height: 1.55; }
   padding-bottom: var(--vv-gap, 0px);
   display: flex; background: var(--card);
   border-top: 1px solid var(--line);
-  box-shadow: 0 -8px 24px rgba(44, 62, 88, .06);
+  box-shadow: 0 -8px 24px var(--tab-shadow);
 }
 /* 底部填充区使用不透明背景。 */
 #tabs::after {
@@ -429,7 +448,7 @@ textarea { resize: none; line-height: 1.55; }
 #toast {
   position: fixed; left: 50%; bottom: calc(80px + var(--safe-b));
   transform: translateX(-50%) translateY(10px);
-  background: rgba(30, 30, 32, .94); color: #fff;
+  background: var(--toast-bg); color: var(--toast-fg);
   padding: 10px 16px; border-radius: 12px; font-size: 14px;
   max-width: 86vw; text-align: center; z-index: 90;
   opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s;

@@ -27,7 +27,7 @@
        ① 这行常量  → 证明 app.js 是新的
        ② #tabs 的 computed position → 证明 app.css 是新的（旧版是 static，v8 起是 fixed）
        ③ 底栏底 / 视口高 → 直接量「到底贴没贴底」，不靠肉眼判断 */
-  var APP_BUILD = 'b23';
+  var APP_BUILD = 'b24';
 
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
@@ -475,10 +475,12 @@
   function taskMonthHtml() {
     var y = ui.timeY, m = ui.timeM, count = new Date(y, m + 1, 0).getDate();
     var first = dayKey(y, m, 1), last = dayKey(y, m, count);
-    var today = isoDay(new Date()), days = '';
+    var today = isoDay(new Date()), days = '', weekends = '';
     for (var d = 1; d <= count; d++) {
       var key = dayKey(y, m, d);
-      days += '<span class="time-day' + (key === today ? ' today' : '') + '">' + pad2(d) + '</span>';
+      var weekend = new Date(y, m, d).getDay() % 6 === 0;
+      days += '<span class="time-day' + (weekend ? ' weekend' : '') + (key === today ? ' today' : '') + '">' + pad2(d) + '</span>';
+      if (weekend) weekends += '<span class="time-weekend" style="grid-column:' + d + '"></span>';
     }
     var groups = plan(), sections = groups.groups.map(function (g) {
       return { name: g.g.name, items: visible(g.items) };
@@ -502,7 +504,7 @@
       });
     });
     if (!rows) rows = '<div class="time-empty">这个月还没有设置任务时间。点任务后可填写开始和完成日期。</div>';
-    return '<div class="time-canvas" style="--days:' + count + '"><div class="time-days">' + days + '</div>' + rows + '</div>';
+    return '<div class="time-canvas" style="--days:' + count + '"><div class="time-weekends">' + weekends + '</div><div class="time-days">' + days + '</div>' + rows + '</div>';
   }
   function renderTime(meeting) {
     if (!ui.timeY) { var d = new Date(); ui.timeY = d.getFullYear(); ui.timeM = d.getMonth(); }
@@ -589,7 +591,7 @@
       var k = dayKey(d.getFullYear(), d.getMonth(), d.getDate());
       var out = d.getMonth() !== ui.calM;
       var n = (S.state.cal[k] || []).length;
-      var cls = 'd' + (out ? ' out' : '') + (k === tkey ? ' today' : '') + (k === ui.selDay ? ' sel' : '');
+      var cls = 'd' + (out ? ' out' : '') + (d.getDay() % 6 === 0 ? ' weekend' : '') + (k === tkey ? ' today' : '') + (k === ui.selDay ? ' sel' : '');
       var label = k + (taskMap[k] ? '，计划任务 ' + taskMap[k] + ' 项' : '') + (n ? '，备注 ' + n + ' 条' : '') + (finMap[k] ? '，划掉 ' + finMap[k] + ' 项' : '');
       h += '<button class="' + cls + '" data-day="' + k + '" aria-label="' + label +
         '" aria-pressed="' + (k === ui.selDay) + '"' + (k === tkey ? ' aria-current="date"' : '') + '>' + d.getDate() +

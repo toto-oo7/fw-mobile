@@ -564,6 +564,34 @@ input, textarea { caret-color: var(--accent); }
   .time-toolbar .time-done { margin-left: auto; }
 }
 @media (min-width: 800px) {
+  body.meeting-mode {
+    --bg: #F7F9FC;
+    --card: #FFFFFF;
+    --card-2: #EEF2F7;
+    --group-bg: #EDF3FF;
+    --text: #182230;
+    --text-2: #58687D;
+    --text-3: #7B899B;
+    --line: #D8E0EA;
+    --accent: #2868DF;
+    --accent-fill: #CFE0FF;
+    --accent-fg: #FFFFFF;
+    --accent-soft: #E1ECFF;
+    --accent-dim: rgba(40, 104, 223, .18);
+    --native-accent: #2868DF;
+    --tab-shadow: rgba(82, 106, 140, .08);
+    --toast-bg: #263348;
+    --toast-fg: #FFFFFF;
+    --selected-done-dot: #7B899B;
+    --red: #EF4D56;
+    --green: #2DBE72;
+    --orange: #F59A23;
+  }
+  body.meeting-mode .meeting-group { background: #EDF3FF; }
+  body.meeting-mode .time-bar { background: #D3D9EA; }
+  body.meeting-mode .time-bar.priority-1 { background: #C3CEFF; }
+  body.meeting-mode .time-bar.priority-2 { background: #B8C3FD; }
+  body.meeting-mode .time-bar.priority-3 { background: #7184E6; }
   #hdr, #p-meeting.page { width: min(calc(100% - 32px), 1440px); margin-inline: auto; }
   #p-meeting .meeting-schedule { min-width: 0; }
 }

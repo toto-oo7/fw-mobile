@@ -104,7 +104,7 @@
   /** 空状态。字段名和桌面端 `小浮窗数据.json` 完全一致。 */
   function emptyState() {
     return {
-      todos: [],            // [{id, text, done, star, group}]
+      todos: [],            // [{id, text, note, done, star, group, done_at, start_date, end_date}]
       groups: [],           // [{id, name, collapsed}]
       cal: {},              // { 'YYYY-MM-DD': [{id, text, group, done}] }
       memo_html: '',
@@ -121,10 +121,11 @@
       return t && t.id;
     }).map(function (t) {
       return {
-        id: String(t.id), text: String(t.text || ''),
+        id: String(t.id), text: String(t.text || ''), note: String(t.note || ''),
         done: !!t.done, star: Math.max(0, Math.min(3, parseInt(t.star, 10) || 0)),
         group: String(t.group || ''),
-        done_at: String(t.done_at || '')
+        done_at: String(t.done_at || ''),
+        start_date: String(t.start_date || ''), end_date: String(t.end_date || '')
       };
     });
     out.groups = (Array.isArray(s.groups) ? s.groups : []).filter(function (g) {
@@ -179,11 +180,12 @@
 
     s.todos.forEach(function (t) {
       out['todo:' + t.id] = {
-        text: t.text || '', done: !!t.done,
+        text: t.text || '', note: t.note || '', done: !!t.done,
         star: t.star || 0, group: t.group || '',
         // ⚠ 完成日期必须带上 —— 和桌面端 `records_from_dat` 的白名单一一对应，
         //   漏了就是「手机一勾选、桌面日历上的灰圈就没了」，而且不报错。
-        done_at: t.done_at || ''
+        done_at: t.done_at || '',
+        start_date: t.start_date || '', end_date: t.end_date || ''
       };
     });
     out['order:todos'] = s.todos.map(function (t) { return t.id; });
@@ -256,13 +258,17 @@
       return k.indexOf('todo:') === 0;
     }).map(function (k) { return k.slice(5); });
     tids = orderKeep(tids, (live['order:todos'] || {}).d);
+    var existing = {};
+    s.todos.forEach(function (t) { existing[t.id] = t; });
     s.todos = tids.map(function (i) {
       var d = (live['todo:' + i] || {}).d || {};
       return {
-        id: i, text: String(d.text || ''), done: !!d.done,
+        id: i, text: String(d.text || ''), note: String(d.note || ''), done: !!d.done,
         star: parseInt(d.star, 10) || 0, group: String(d.group || ''),
         // 老记录没有这个字段 → 补空串，形状和本地新建的一致
-        done_at: String(d.done_at || '')
+        done_at: String(d.done_at || ''),
+        start_date: String(d.start_date === undefined && existing[i] ? existing[i].start_date : d.start_date || ''),
+        end_date: String(d.end_date === undefined && existing[i] ? existing[i].end_date : d.end_date || '')
       };
     });
 

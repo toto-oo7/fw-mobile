@@ -21,6 +21,7 @@
   ],
   "shortcuts": [
     { "name": "待办", "url": "./?t=todo" },
+    { "name": "月日历", "url": "./?t=time" },
     { "name": "日历", "url": "./?t=cal" },
     { "name": "备忘", "url": "./?t=memo" }
   ]

@@ -76,7 +76,8 @@
 
     load: function () {
       this.cfg = Object.assign({}, DEFAULT_CFG, { syncOn: !!accountId }, lsGet(scoped(LS_CFG), {}));
-      this.state = R.normalizeState(lsGet(scoped(LS_STATE), null));
+      var rawState = lsGet(scoped(LS_STATE), null);
+      this.state = R.normalizeState(rawState);
       var ss = lsGet(scoped(LS_SYNC), null);
       this.syncState = (ss && typeof ss === 'object' && ss.records)
         ? ss : { records: {}, at: '', gist: '' };
@@ -88,6 +89,23 @@
         this.syncState = { records: {}, at: '', gist: cur };
         this.saveSyncState();
       }
+      // 旧网页没有日期字段；升级时只更新未改动记录的本机摘要，保留原时间戳。
+      // 否则补上的空日期会被当成“刚修改”，盖掉电脑端已经排好的日期。
+      var migrated = false, records = R.recordsFromState(this.state);
+      (rawState && Array.isArray(rawState.todos) ? rawState.todos : []).forEach(function (todo) {
+        if (!todo || !todo.id) return;
+        var key = 'todo:' + todo.id, known = Store.syncState.records[key], full = records[key];
+        if (!known || !full) return;
+        var legacy = Object.assign({}, full);
+        ['note', 'start_date', 'end_date'].forEach(function (field) {
+          if (!Object.prototype.hasOwnProperty.call(todo, field)) delete legacy[field];
+        });
+        if (known.h === R.hashOf(legacy) && known.h !== R.hashOf(full)) {
+          known.h = R.hashOf(full);
+          migrated = true;
+        }
+      });
+      if (migrated) this.saveSyncState();
       return this;
     },
 

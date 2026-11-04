@@ -31,7 +31,7 @@
  *       换来的是：**改完打开一次就是新版**，不用关掉重开、不用等下一次。
  */
 /* v17：电脑 / 手机统一视觉；卡片层级、日历、底栏和深色主题精修（2026-10-21） */
-var CACHE = 'fw-mobile-v22-startup';
+var CACHE = 'fw-mobile-v23-month-calendar';
 var CORE = ['./index.html', './app.css', './app.js', './records.js', './gist.js',
   './cloud-config.js', './supabase.js', './account.js', './store.js'];
 
@@ -118,7 +118,7 @@ self.addEventListener('fetch', function (e) {
       '<style>body{margin:0;padding:64px 24px;font:16px/1.7 sans-serif;background:#FFF8DC;color:#302E25}' +
       'a{color:#80611C}@media(prefers-color-scheme:dark){body{background:#11141A;color:#F5F7FA}a{color:#5A9BFF}}</style>' +
       '<h2>暂时没有连上网络</h2><p>页面文件未加载完整。本机数据没有清除，请联网后重新打开。</p>' +
-      '<a href="./?retry=b22">重新打开小浮窗</a></html>',
+      '<a href="./?retry=b23">重新打开小浮窗</a></html>',
       { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
   }
   var network = fetch(fresh).then(function (response) {

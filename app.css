@@ -244,6 +244,7 @@ html.pwa-standalone body {
 .done .txt { color: var(--text-2); text-decoration: line-through; text-decoration-thickness: 1px; }
 .todo-edit { border: 0; background: transparent; color: inherit; font: inherit;
   text-align: left; padding: 0; cursor: pointer; line-height: 1.55; }
+.todo-note { color: var(--text-2); font-size: 12px; font-weight: 400; white-space: nowrap; }
 
 /* ---------------------------------------------------------- 勾选圆圈 */
 
@@ -506,4 +507,56 @@ input, textarea { caret-color: var(--accent); }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+
+/* 任务月历：日期与任务共用 44px 的日宽，横向滚动看完整月份。 */
+.todo-date { color: var(--text-2); font-size: 11px; white-space: nowrap; }
+.date-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.date-pair input { width: 100%; margin-top: 6px; }
+.time-toolbar { display: flex; align-items: center; gap: 8px; padding: 12px 0; color: var(--text); }
+.time-toolbar button { border: 1px solid var(--line); border-radius: 9px; background: var(--card); color: var(--text); min-height: 36px; padding: 4px 10px; }
+.time-toolbar strong { font-size: 15px; white-space: nowrap; }
+.time-toolbar .time-today { margin-left: auto; }
+.time-toolbar .time-done { font-size: 12px; }
+.time-board { width: 100%; overflow-x: auto; overflow-y: visible; border: 1px solid var(--line); border-radius: 12px; background: var(--card); scrollbar-width: thin; }
+.time-canvas { width: calc(var(--days) * 44px); min-width: 100%; padding-bottom: 8px; }
+.time-days, .time-row { display: grid; grid-template-columns: repeat(var(--days), 44px); }
+.time-days { position: sticky; top: 0; z-index: 2; background: var(--card); border-bottom: 1px solid var(--line); }
+.time-day { text-align: center; padding: 11px 0; font-size: 12px; color: var(--text-2); border-right: 1px solid var(--line); }
+.time-day.today { color: var(--red); font-weight: 700; background: color-mix(in srgb, var(--red) 10%, var(--card)); }
+.time-group { padding: 8px 14px; font-size: 13px; font-weight: 700; color: var(--text-2); background: var(--card-2); }
+.time-row { min-height: 42px; align-items: center; border-bottom: 1px solid var(--line); background-image: linear-gradient(to right, var(--line) 1px, transparent 1px); background-size: 44px 100%; }
+.time-bar { display: flex; align-items: center; justify-content: space-between; min-width: 0; height: 32px; margin: 0 2px; padding: 0; border: 0; border-radius: 7px; background: #C7D0EE; color: #1F2A49; cursor: grab; touch-action: pan-y; }
+.time-bar.priority-1 { background: #ABB8F5; }
+.time-bar.priority-2 { background: #8D9FEC; }
+.time-bar.priority-3 { background: #697FDD; color: #fff; }
+.time-bar-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; line-height: 1.2; }
+.time-grip { width: 8px; height: 24px; flex: 0 0 8px; border-radius: 4px; background: rgba(255,255,255,.85); cursor: ew-resize; }
+.time-empty { padding: 28px 16px; color: var(--text-2); font-size: 13px; }
+.task-count { display: block; font-size: 10px; line-height: 1; color: var(--accent); font-weight: 700; }
+.day-task { width: 100%; justify-content: space-between; border: 0; background: transparent; color: var(--text); text-align: left; }
+.view-link { text-decoration: none; color: var(--text); justify-content: space-between; }
+
+/* 会议页宽屏并排，手机直达链接时仍可纵向使用。 */
+.meeting-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 16px 0 12px; }
+.meeting-heading h2 { margin: 0 0 4px; font-size: 20px; }
+.meeting-heading p { margin: 0; color: var(--text-2); font-size: 13px; }
+.meeting-layout { display: grid; grid-template-columns: minmax(240px, 32%) minmax(0, 1fr); gap: 16px; align-items: start; }
+.meeting-tasks { border: 1px solid var(--line); border-radius: 12px; background: var(--card); overflow: hidden; }
+.meeting-group { padding: 9px 12px; background: var(--card-2); font-weight: 700; font-size: 13px; }
+.meeting-row { display: flex; align-items: center; gap: 7px; min-height: 40px; padding: 4px 10px; border-top: 1px solid var(--line); }
+.meeting-row button { background: none; border: 0; color: var(--text); cursor: pointer; }
+.meeting-row .meeting-edit { min-width: 0; flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.meeting-row span { white-space: nowrap; font-size: 11px; color: var(--text-2); }
+@media (max-width: 799px) {
+  #tabs button[data-tab="meeting"] { display: none; }
+  .meeting-layout { display: block; }
+  .meeting-schedule { margin-top: 12px; }
+  .meeting-heading p { display: none; }
+  .time-toolbar { flex-wrap: wrap; }
+  .time-toolbar .time-done { margin-left: auto; }
+}
+@media (min-width: 800px) {
+  #hdr, #p-meeting.page { width: min(calc(100% - 32px), 1440px); margin-inline: auto; }
+  #p-meeting .meeting-schedule { min-width: 0; }
 }

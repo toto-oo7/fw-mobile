@@ -27,7 +27,7 @@
        ① 这行常量  → 证明 app.js 是新的
        ② #tabs 的 computed position → 证明 app.css 是新的（旧版是 static，v8 起是 fixed）
        ③ 底栏底 / 视口高 → 直接量「到底贴没贴底」，不靠肉眼判断 */
-  var APP_BUILD = 'b22';
+  var APP_BUILD = 'b23';
 
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
@@ -35,7 +35,7 @@
   var ui = {
     tab: 'todo',
     sortMode: false,
-    calY: 0, calM: 0,
+    calY: 0, calM: 0, timeY: 0, timeM: 0,
     memoDirty: false,
     memoFocus: false,
     memoSaved: '',           // 上一次写进 store 的纯文本，用来判断「真的改了没」
@@ -266,13 +266,15 @@
     if (renderFrame) { cancelAnimationFrame(renderFrame); renderFrame = 0; }
     renderHeader();
     if (ui.tab === 'todo') renderTodo();
+    else if (ui.tab === 'time') renderTime(false);
+    else if (ui.tab === 'meeting') renderTime(true);
     else if (ui.tab === 'cal') renderCal();
     else if (ui.tab === 'memo') renderMemo();
     else renderSet();
   }
 
   function renderHeader() {
-    var titles = { todo: '待办', cal: '日历', memo: '备忘', set: '设置' };
+    var titles = { todo: '待办', time: '月日历', meeting: '会议', cal: '日历', memo: '备忘', set: '设置' };
     $('#hdr-title').firstChild.nodeValue = titles[ui.tab];
     var sub = '';
     if (ui.tab === 'todo') {
@@ -313,7 +315,9 @@
     var h = '<div class="row tap' + (t.done ? ' done' : '') + '" data-id="' + t.id + '">';
     h += '<button class="dot-check' + (t.done ? ' on' : '') + '" data-act="toggle" aria-pressed="' + !!t.done +
       '" aria-label="' + esc((t.done ? '取消完成：' : '完成：') + t.text) + '">✓</button>';
-    h += '<button class="grow todo-edit" aria-label="' + esc('编辑：' + t.text) + '"><span class="txt">' + esc(t.text) + '</span></button>';
+    h += '<button class="grow todo-edit" aria-label="' + esc('编辑：' + t.text + (t.note ? '，备注：' + t.note : '')) + '"><span class="txt">' + esc(t.text) + '</span>' +
+      (t.note ? '<span class="todo-note"> · …</span>' : '') + '</button>';
+    if (t.start_date) h += '<span class="todo-date">' + esc(t.start_date.slice(5)) + '</span>';
     h += '<span class="star s' + (t.star || 0) + '">' + stars(t.star) + '</span>';
     if (ui.sortMode) {
       h += '<button class="mv" data-act="up" aria-label="上移">▲</button>';
@@ -423,7 +427,7 @@
     S.mutate(function (st) {
       st.todos.push({
         id: R.newId(), text: text, done: false, star: 0,
-        group: ui.newTodoGroup || '', done_at: ''
+        group: ui.newTodoGroup || '', done_at: '', start_date: '', end_date: ''
       });
     });
     return true;
@@ -454,6 +458,103 @@
     });
   }
 
+  /* ------------------------------------------------------------ 任务月历 */
+
+  function isoDay(date) { return dayKey(date.getFullYear(), date.getMonth(), date.getDate()); }
+  function shiftDay(key, days) {
+    var d = new Date(key + 'T12:00:00');
+    d.setDate(d.getDate() + days);
+    return isoDay(d);
+  }
+  function moveMonth(n) {
+    if (!ui.timeY) { var d = new Date(); ui.timeY = d.getFullYear(); ui.timeM = d.getMonth(); }
+    var target = new Date(ui.timeY, ui.timeM + n, 1);
+    ui.timeY = target.getFullYear(); ui.timeM = target.getMonth();
+    render();
+  }
+  function taskMonthHtml() {
+    var y = ui.timeY, m = ui.timeM, count = new Date(y, m + 1, 0).getDate();
+    var first = dayKey(y, m, 1), last = dayKey(y, m, count);
+    var today = isoDay(new Date()), days = '';
+    for (var d = 1; d <= count; d++) {
+      var key = dayKey(y, m, d);
+      days += '<span class="time-day' + (key === today ? ' today' : '') + '">' + pad2(d) + '</span>';
+    }
+    var groups = plan(), sections = groups.groups.map(function (g) {
+      return { name: g.g.name, items: visible(g.items) };
+    });
+    if (groups.loose.length) sections.push({ name: '未分组', items: visible(groups.loose) });
+    var rows = '';
+    sections.forEach(function (section) {
+      var items = section.items.filter(function (t) {
+        return t.start_date && t.end_date && t.start_date <= last && t.end_date >= first;
+      });
+      if (!items.length) return;
+      rows += '<div class="time-group">' + esc(section.name) + '</div>';
+      items.forEach(function (t) {
+        var start = Math.max(1, Math.round((new Date(t.start_date + 'T12:00:00') - new Date(first + 'T12:00:00')) / 86400000) + 1);
+        var end = Math.min(count, Math.round((new Date(t.end_date + 'T12:00:00') - new Date(first + 'T12:00:00')) / 86400000) + 1);
+        rows += '<div class="time-row"><button class="time-bar priority-' + (t.star || 0) + '" data-id="' + esc(t.id) +
+          '" style="grid-column:' + start + '/span ' + (end - start + 1) + '" title="' + esc(t.text + ' · ' + t.start_date.slice(5).replace('-', '/') + ' - ' + t.end_date.slice(5).replace('-', '/')) +
+          '" aria-label="编辑 ' + esc(t.text) + '，' + t.start_date.slice(5).replace('-', '/') + ' 至 ' + t.end_date.slice(5).replace('-', '/') + '">' +
+          '<span class="time-grip" data-edge="start" aria-hidden="true"></span><span class="time-bar-text">' + esc(t.text) +
+          '</span><span class="time-grip" data-edge="end" aria-hidden="true"></span></button></div>';
+      });
+    });
+    if (!rows) rows = '<div class="time-empty">这个月还没有设置任务时间。点任务后可填写开始和完成日期。</div>';
+    return '<div class="time-canvas" style="--days:' + count + '"><div class="time-days">' + days + '</div>' + rows + '</div>';
+  }
+  function renderTime(meeting) {
+    if (!ui.timeY) { var d = new Date(); ui.timeY = d.getFullYear(); ui.timeM = d.getMonth(); }
+    var toolbar = $('#' + (meeting ? 'meeting' : 'time') + '-toolbar');
+    toolbar.innerHTML = '<button data-month="-1" aria-label="上个月">‹</button><strong>' + ui.timeY + ' 年 ' + pad2(ui.timeM + 1) + ' 月</strong>' +
+      '<button data-month="1" aria-label="下个月">›</button><button class="time-today" data-month="today">今天</button>' +
+      '<button class="time-done" data-act="showdone">' + (S.cfg.showDone ? '隐藏已完成' : '显示已完成') + '</button>';
+    var board = $('#' + (meeting ? 'meeting' : 'time') + '-board');
+    var x = board.scrollLeft;
+    updateHTML(board, taskMonthHtml());
+    board.scrollLeft = x;
+    if (meeting) {
+      var p = plan(), list = '';
+      p.groups.forEach(function (g) {
+        list += '<div class="meeting-group">' + esc(g.g.name) + '</div>' + visible(g.items).map(meetingTask).join('');
+      });
+      if (p.loose.length) list += '<div class="meeting-group">未分组</div>' + visible(p.loose).map(meetingTask).join('');
+      updateHTML($('#meeting-tasks'), list || '<div class="hint">还没有任务</div>');
+    }
+  }
+  function meetingTask(t) {
+    return '<div class="meeting-row" data-id="' + esc(t.id) + '"><button data-act="toggle" aria-label="切换完成状态">' +
+      (t.done ? '✓' : '○') + '</button><button class="meeting-edit">' + esc(t.text) + '</button><span>' +
+      (t.start_date ? esc(t.start_date.slice(5).replace('-', '/') + ' - ' + t.end_date.slice(5).replace('-', '/')) : '未排日期') + '</span></div>';
+  }
+  function timeBoardPointer(event) {
+    var bar = event.target.closest('.time-bar[data-id]');
+    if (!bar || event.button !== 0) return;
+    var task = S.state.todos.find(function (t) { return t.id === bar.dataset.id; });
+    if (!task) return;
+    var edge = event.target.closest('[data-edge]');
+    var mode = edge ? edge.dataset.edge : 'move', origin = event.clientX, delta = 0;
+    bar.setPointerCapture(event.pointerId);
+    bar.onpointermove = function (e) {
+      delta = Math.round((e.clientX - origin) / 44);
+      bar.style.transform = mode === 'move' ? 'translateX(' + (delta * 44) + 'px)' : '';
+    };
+    bar.onpointerup = function () {
+      bar.onpointermove = bar.onpointerup = null;
+      bar.style.transform = '';
+      if (!delta) return;
+      var start = mode === 'end' ? task.start_date : shiftDay(task.start_date, delta);
+      var end = mode === 'start' ? task.end_date : shiftDay(task.end_date, delta);
+      if (end < start) { toast('完成日期不能早于开始日期'); return; }
+      bar.dataset.dragged = '1';
+      S.mutate(function (st) { st.todos.forEach(function (t) {
+        if (t.id === task.id) { t.start_date = start; t.end_date = end; }
+      }); });
+      render();
+    };
+  }
+
   /* ------------------------------------------------------------ 日历页 */
 
   var WEEK = ['日', '一', '二', '三', '四', '五', '六'];
@@ -474,9 +575,13 @@
     WEEK.forEach(function (w) { h += '<div class="wk">' + w + '</div>'; });
 
     // {日期: 这天划掉了几项} —— 只在循环外扫一遍 todos，别在 42 个格子里各扫一次
-    var finMap = {};
+    var finMap = {}, taskMap = {};
     S.state.todos.forEach(function (t) {
       if (t.done && t.done_at) finMap[t.done_at] = (finMap[t.done_at] || 0) + 1;
+      if (!t.start_date || !t.end_date || (t.done && !S.cfg.showDone)) return;
+      for (var date = t.start_date, n = 0; date <= t.end_date && n < 370; date = shiftDay(date, 1), n++) {
+        taskMap[date] = (taskMap[date] || 0) + 1;
+      }
     });
 
     for (var i = 0; i < 42; i++) {
@@ -485,9 +590,10 @@
       var out = d.getMonth() !== ui.calM;
       var n = (S.state.cal[k] || []).length;
       var cls = 'd' + (out ? ' out' : '') + (k === tkey ? ' today' : '') + (k === ui.selDay ? ' sel' : '');
-      var label = k + (n ? '，备注 ' + n + ' 条' : '') + (finMap[k] ? '，划掉 ' + finMap[k] + ' 项' : '');
+      var label = k + (taskMap[k] ? '，计划任务 ' + taskMap[k] + ' 项' : '') + (n ? '，备注 ' + n + ' 条' : '') + (finMap[k] ? '，划掉 ' + finMap[k] + ' 项' : '');
       h += '<button class="' + cls + '" data-day="' + k + '" aria-label="' + label +
         '" aria-pressed="' + (k === ui.selDay) + '"' + (k === tkey ? ' aria-current="date"' : '') + '>' + d.getDate() +
+        (taskMap[k] ? '<span class="task-count">' + taskMap[k] + '</span>' : '') +
         (n ? '<span class="pd"></span>' : '') +
         (finMap[k] ? '<span class="fd"></span>' : '') + '</button>';
     }
@@ -524,8 +630,16 @@
     var items = S.state.cal[key] || [];
     // 这天在待办清单里划掉的项目（和桌面 DayDialog 里那块对应）
     var fin = S.state.todos.filter(function (t) { return t.done && t.done_at === key; });
+    var scheduled = S.state.todos.filter(function (t) { return t.start_date && t.end_date && t.start_date <= key && t.end_date >= key; });
     var h = '';
-    if (!items.length && !fin.length) h = '<div class="hint">这天还没有记录。</div>';
+    if (!items.length && !fin.length && !scheduled.length) h = '<div class="hint">这天还没有记录。</div>';
+    if (scheduled.length) {
+      h += '<div class="lbl">计划任务 · ' + scheduled.length + '</div>';
+      scheduled.forEach(function (t) {
+        h += '<button class="row tap day-task" data-task-id="' + esc(t.id) + '"><span class="txt">' + esc(t.text) + '</span><span class="sub">' +
+          esc(t.start_date.slice(5).replace('-', '/') + ' - ' + t.end_date.slice(5).replace('-', '/')) + '</span></button>';
+      });
+    }
     items.forEach(function (x) {
       var gname = '';
       S.state.groups.forEach(function (g) { if (g.id === x.group) gname = g.name; });
@@ -615,6 +729,10 @@
   function renderSet() {
     var cfg = S.cfg, gh = GH.getCfg();
     var h = '';
+
+    h += '<div class="sec-t">查看方式</div><div class="card">' +
+      '<a class="row tap view-link" href="?t=time">任务月日历<span class="chev">›</span></a>' +
+      '<a class="row tap view-link" href="?t=meeting">会议网页版<span class="chev">›</span></a></div>';
 
     h += '<div class="sec-t">我的账号</div><div class="card">';
     var user = A.current();
@@ -774,7 +892,7 @@
 
   // 底部标签
   function switchTab(name) {
-    if (!/^(todo|cal|memo|set)$/.test(name)) return;
+    if (!/^(todo|time|cal|memo|meeting|set)$/.test(name)) return;
     ui.tab = name;
     $$('#tabs button').forEach(function (x) {
       x.classList.toggle('on', x.dataset.tab === name);
@@ -865,6 +983,46 @@
     ui.newTodoGroup = this.value;
   });
 
+  ['time', 'meeting'].forEach(function (name) {
+    var toolbar = $('#' + name + '-toolbar'), board = $('#' + name + '-board');
+    toolbar.addEventListener('click', function (e) {
+      var button = e.target.closest('button');
+      if (!button) return;
+      if (button.dataset.act === 'showdone') { S.saveCfg({ showDone: !S.cfg.showDone }); render(); return; }
+      if (button.dataset.month === 'today') {
+        var today = new Date(); ui.timeY = today.getFullYear(); ui.timeM = today.getMonth(); render();
+        board.scrollLeft = Math.max(0, (today.getDate() - 3) * 44); return;
+      }
+      moveMonth(Number(button.dataset.month));
+      board.scrollLeft = 0;
+    });
+    board.addEventListener('pointerdown', timeBoardPointer);
+    board.addEventListener('click', function (e) {
+      var bar = e.target.closest('.time-bar[data-id]');
+      if (bar) { if (bar.dataset.dragged) { delete bar.dataset.dragged; return; } openTodoSheet(bar.dataset.id); }
+    });
+  });
+  $('#meeting-tasks').addEventListener('click', function (e) {
+    var row = e.target.closest('[data-id]');
+    if (!row) return;
+    if (e.target.closest('[data-act="toggle"]')) {
+      S.mutate(function (st) { st.todos.forEach(function (t) {
+        if (t.id === row.dataset.id) { t.done = !t.done; t.done_at = t.done ? isoDay(new Date()) : ''; }
+      }); });
+      render();
+    } else openTodoSheet(row.dataset.id);
+  });
+  $('#meeting-add').addEventListener('click', function () {
+    openSheet('<h3>新增任务</h3><label class="lbl" for="meeting-new">任务名称</label><input id="meeting-new" type="text">' +
+      '<div style="height:16px"></div><button class="btn" id="meeting-create">创建并设置时间</button>', function (root) {
+      $('#meeting-create', root).addEventListener('click', function () {
+        if (!addTodo($('#meeting-new', root).value)) return;
+        var id = S.state.todos[S.state.todos.length - 1].id;
+        closeSheet(); openTodoSheet(id);
+      });
+    });
+  });
+
   // 日历页
   $('#cal-prev').addEventListener('click', function () {
     ui.calM--; if (ui.calM < 0) { ui.calM = 11; ui.calY--; } renderCal();
@@ -880,6 +1038,8 @@
   // 当天备注弹层里的勾选 / 删除
   $('#sheet-body').addEventListener('click', function (e) {
     if (!ui.selDay) return;
+    var taskButton = e.target.closest('[data-task-id]');
+    if (taskButton) { openTodoSheet(taskButton.dataset.taskId); return; }
 
     // 「已完成 · 未记日期」里的一键挂到当前这天
     var urow = e.target.closest('.row[data-tid]');
@@ -999,6 +1159,9 @@
     openSheet(
       '<h3>编辑待办</h3>' +
       '<input type="text" id="e-text" aria-label="待办内容" value="' + esc(t.text) + '">' +
+      '<label class="lbl" for="e-note">备注</label><textarea id="e-note" rows="3" placeholder="给这项添加备注">' + esc(t.note || '') + '</textarea>' +
+      '<div class="date-pair"><label class="lbl" for="e-start">开始日期<input type="date" id="e-start" value="' + esc(t.start_date || '') + '"></label>' +
+      '<label class="lbl" for="e-end">完成日期<input type="date" id="e-end" value="' + esc(t.end_date || '') + '"></label></div>' +
       '<label class="lbl" for="e-group">分组</label><select id="e-group">' + opts + '</select>' +
       '<div class="lbl">重要程度</div>' +
       '<div style="display:flex;gap:8px">' +
@@ -1024,10 +1187,13 @@
         $('#e-save', root).addEventListener('click', function () {
           var txt = $('#e-text', root).value.trim();
           var grp = $('#e-group', root).value;
+           var start = $('#e-start', root).value, end = $('#e-end', root).value;
           if (!txt) { toast('内容不能为空'); return; }
+           if ((start && !end) || (!start && end)) { toast('请同时填写开始和完成日期'); return; }
+           if (start && end < start) { toast('完成日期不能早于开始日期'); return; }
           S.mutate(function (st) {
             st.todos.forEach(function (x) {
-              if (x.id === id) { x.text = txt; x.group = grp; x.star = star; }
+               if (x.id === id) { x.text = txt; x.note = $('#e-note', root).value.trim(); x.group = grp; x.star = star; x.start_date = start; x.end_date = end; }
             });
           });
           closeSheet(); render(); toast('已保存');

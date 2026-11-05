@@ -547,10 +547,20 @@ input, textarea { caret-color: var(--accent); }
 /* 会议页宽屏并排，手机直达链接时仍可纵向使用。 */
 .meeting-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 16px 0 12px; }
 .meeting-heading h2 { margin: 0 0 4px; font-size: 20px; }
+#meeting-back { display: none; }
+.meeting-heading h2 span { margin-left: 12px; color: var(--text-2); font: 400 13px "Source Code Pro", ui-monospace, monospace; }
 .meeting-heading p { margin: 0; color: var(--text-2); font-size: 13px; }
+.meeting-actions, .meeting-schedule-head { display: flex; align-items: center; gap: 12px; }
+.meeting-schedule-head { justify-content: space-between; }
+.meeting-schedule-head h2 { margin: 0; font-size: 18px; }
 .meeting-layout { display: grid; grid-template-columns: minmax(240px, 32%) minmax(0, 1fr); gap: 16px; align-items: start; }
 .meeting-tasks { border: 1px solid var(--line); border-radius: 12px; background: var(--card); overflow: hidden; }
-.meeting-group { padding: 9px 12px; background: var(--card-2); font-weight: 700; font-size: 13px; }
+.meeting-group { display: flex; align-items: center; gap: 8px; padding: 5px 10px; background: var(--card-2); font-weight: 700; font-size: 13px; }
+.meeting-group button { border: 0; background: transparent; color: var(--text-2); cursor: pointer; }
+.meeting-group .meeting-fold { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; text-align: left; color: var(--text); font-weight: 700; }
+.meeting-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.meeting-arrow { flex: 0 0 10px; font-size: 12px; color: var(--text-2); }
+.meeting-group-count { flex: 0 0 auto; font: 12px "Source Code Pro", ui-monospace, monospace; color: var(--text-2); }
 .meeting-row { display: flex; align-items: center; gap: 7px; min-height: 40px; padding: 4px 10px; border-top: 1px solid var(--line); }
 .meeting-row button { background: none; border: 0; color: var(--text); cursor: pointer; }
 .meeting-row .meeting-edit { min-width: 0; flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -571,6 +581,27 @@ input, textarea { caret-color: var(--accent); }
   .time-toolbar .time-done { margin-left: auto; }
 }
 @media (min-width: 800px) {
+  body.desktop-meeting #hdr, body.desktop-meeting #tabs { display: none !important; }
+  body.desktop-meeting #main { padding-bottom: 0; }
+  body.desktop-meeting #p-set.page { width: min(100%, 760px); margin: 0 auto; padding-top: 24px; }
+  body.desktop-meeting #meeting-back { display: inline-flex; margin-bottom: 16px; }
+  body.desktop-meeting .setting-view-links { display: none; }
+  body.desktop-meeting #p-meeting.page { width: min(100%, 1600px); margin: 0 auto; padding: 0 18px 18px; }
+  body.desktop-meeting .meeting-layout { display: flex; flex-direction: column; align-items: stretch; gap: 12px; }
+  body.desktop-meeting .meeting-tasks { max-height: min(44vh, 430px); overflow-y: auto; scrollbar-width: thin; }
+  body.desktop-meeting .meeting-schedule { min-width: 0; }
+  body.desktop-meeting .meeting-schedule-head { min-height: 44px; }
+  body.desktop-meeting .meeting-schedule-head .time-toolbar { padding: 4px 0; }
+  body.desktop-meeting #meeting-board { max-height: max(42vh, 300px); overflow: auto; }
+  body.desktop-meeting #meeting-board .time-header { position: sticky; top: 0; }
+  body.desktop-meeting #meeting-board .time-month,
+  body.desktop-meeting #meeting-board .time-group { position: sticky; left: 0; z-index: 2; }
+  body.desktop-meeting .meeting-row { min-height: 36px; }
+  body.desktop-meeting .meeting-group { min-height: 36px; border-top: 1px solid var(--line); }
+  body.desktop-meeting .meeting-group:first-child { border-top: 0; }
+  body.desktop-meeting .meeting-row[draggable], body.desktop-meeting .meeting-group[draggable] { cursor: grab; }
+  body.desktop-meeting .meeting-drag-target { outline: 2px solid var(--accent); outline-offset: -2px; }
+  body.desktop-meeting .time-bar.linked { background: #F1B9D9; outline: 1px solid #D87EB0; }
   body.meeting-mode {
     --bg: #F7F9FC;
     --card: #FFFFFF;

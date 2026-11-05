@@ -27,7 +27,7 @@
        ① 这行常量  → 证明 app.js 是新的
        ② #tabs 的 computed position → 证明 app.css 是新的（旧版是 static，v8 起是 fixed）
        ③ 底栏底 / 视口高 → 直接量「到底贴没贴底」，不靠肉眼判断 */
-  var APP_BUILD = 'b28';
+  var APP_BUILD = 'b29';
 
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
@@ -427,7 +427,7 @@
     });
   }
 
-  function addTodo(text) {
+  function addTodo(text, group) {
     text = (text || '').trim();
     if (!text) {
       toast('先写一点内容');
@@ -436,7 +436,8 @@
     S.mutate(function (st) {
       st.todos.push({
         id: R.newId(), text: text, done: false, star: 0,
-        group: ui.newTodoGroup || '', done_at: '', start_date: '', end_date: '', extra_ranges: []
+        group: group === undefined ? (ui.newTodoGroup || '') : group,
+        done_at: '', start_date: '', end_date: '', extra_ranges: []
       });
     });
     return true;
@@ -550,26 +551,35 @@
     toolbar.innerHTML = '<button class="time-today" data-month="today">今天</button>' +
       '<button class="time-done" data-act="showdone">' + (S.cfg.showDone ? '隐藏已完成' : '显示已完成') + '</button>';
     var board = $('#' + (meeting ? 'meeting' : 'time') + '-board');
-    var x = board.scrollLeft;
+    var x = board.scrollLeft, yScroll = board.scrollTop;
     updateHTML(board, taskMonthHtml());
-    board.scrollLeft = x;
+    board.scrollLeft = x; board.scrollTop = yScroll;
     if (meeting) {
       var p = plan(), list = '';
       p.groups.forEach(function (g) {
-        list += '<div class="meeting-group">' + esc(g.g.name) + '</div>' + visible(g.items).map(meetingTask).join('');
+        list += '<div class="meeting-group" draggable="true" title="拖动调整分组顺序" data-gid="' + esc(g.g.id) + '"><button class="meeting-fold" aria-expanded="' + !g.g.collapsed +
+          '" aria-label="' + (g.g.collapsed ? '展开' : '折叠') + esc(g.g.name) + '"><span class="meeting-arrow">' + (g.g.collapsed ? '▸' : '▾') +
+          '</span><span class="meeting-name">' + esc(g.g.name) + '</span></button><span class="meeting-group-count">' + g.done + '/' + g.items.length +
+          '</span><button data-act="group-add" aria-label="在' + esc(g.g.name) + '中新增任务">＋</button><button data-act="group-edit" aria-label="编辑' + esc(g.g.name) + '">⋯</button></div>' +
+          (g.g.collapsed ? '' : visible(g.items).map(meetingTask).join(''));
       });
-      if (p.loose.length) list += '<div class="meeting-group">未分组</div>' + visible(p.loose).map(meetingTask).join('');
-      updateHTML($('#meeting-tasks'), list || '<div class="hint">还没有任务</div>');
+      if (p.loose.length) list += '<div class="meeting-group" data-gid=""><button class="meeting-fold" aria-expanded="' + !S.state.loose_collapsed +
+        '"><span class="meeting-arrow">' + (S.state.loose_collapsed ? '▸' : '▾') + '</span><span class="meeting-name">未分组</span></button>' +
+        '<span class="meeting-group-count">' + p.looseDone + '/' + p.loose.length + '</span><button data-act="group-add" aria-label="在未分组中新增任务">＋</button></div>' +
+        (S.state.loose_collapsed ? '' : visible(p.loose).map(meetingTask).join(''));
+      var taskList = $('#meeting-tasks'), taskScroll = taskList.scrollTop;
+      updateHTML(taskList, list || '<div class="hint">还没有任务</div>');
+      taskList.scrollTop = taskScroll;
+      $('#meeting-count').textContent = p.groups.reduce(function (n, g) { return n + g.done; }, p.looseDone) + '/' + S.state.todos.length;
     }
   }
   function meetingTask(t) {
     var level = Math.max(0, Math.min(3, t.star || 0));
-    var dates = taskRanges(t).length ? taskRanges(t).map(rangeText).join('、') : '未排日期';
-    return '<div class="meeting-row" data-id="' + esc(t.id) + '"><button data-act="toggle" aria-label="切换完成状态">' +
+    return '<div class="meeting-row" draggable="true" title="拖动调整任务顺序" data-id="' + esc(t.id) + '"><button data-act="toggle" aria-label="切换完成状态">' +
       (t.done ? '✓' : '○') + '</button><button class="meeting-edit">' + esc(t.text) + '</button>' +
       '<span class="meeting-priority priority-' + level + '" role="img" aria-label="' +
       ['普通', '重要', '很重要', '紧急'][level] + '" title="' + ['普通', '重要', '很重要', '紧急'][level] + '">' + stars(level) +
-      '</span><span class="meeting-dates" title="' + esc(dates) + '">' + esc(dates) + '</span></div>';
+      '</span></div>';
   }
   function timeBoardPointer(event) {
     var bar = event.target.closest('.time-bar[data-id]');
@@ -863,9 +873,9 @@
     var cfg = S.cfg, gh = GH.getCfg();
     var h = '';
 
-    h += '<div class="sec-t">查看方式</div><div class="card">' +
+    h += '<div class="setting-view-links"><div class="sec-t">查看方式</div><div class="card">' +
       '<a class="row tap view-link" href="?t=time">任务月日历<span class="chev">›</span></a>' +
-      '<a class="row tap view-link" href="?t=meeting">会议网页版<span class="chev">›</span></a></div>';
+      '<a class="row tap view-link" href="?t=meeting">会议网页版<span class="chev">›</span></a></div></div>';
 
     h += '<div class="sec-t">我的账号</div><div class="card">';
     var user = A.current();
@@ -1026,6 +1036,7 @@
   // 底部标签
   function switchTab(name) {
     if (!/^(todo|time|cal|memo|meeting|set)$/.test(name)) return;
+    if (document.body.classList.contains('desktop-meeting') && name !== 'set') name = 'meeting';
     ui.tab = name;
     document.body.classList.toggle('meeting-mode', name === 'meeting');
     $$('#tabs button').forEach(function (x) {
@@ -1141,6 +1152,17 @@
     });
   });
   $('#meeting-tasks').addEventListener('click', function (e) {
+    var group = e.target.closest('.meeting-group');
+    if (group) {
+      var gid = group.dataset.gid, action = e.target.closest('[data-act]');
+      if (action && action.dataset.act === 'group-edit') { openGroupSheet(gid); return; }
+      if (action && action.dataset.act === 'group-add') { openMeetingCreate(gid); return; }
+      S.mutate(function (st) {
+        if (!gid) st.loose_collapsed = !st.loose_collapsed;
+        else st.groups.forEach(function (g) { if (g.id === gid) g.collapsed = !g.collapsed; });
+      });
+      render(); return;
+    }
     var row = e.target.closest('[data-id]');
     if (!row) return;
     if (e.target.closest('[data-act="toggle"]')) {
@@ -1150,16 +1172,87 @@
       render();
     } else openTodoSheet(row.dataset.id);
   });
-  $('#meeting-add').addEventListener('click', function () {
+  $('#meeting-tasks').addEventListener('pointerdown', function (e) {
+    var row = e.target.closest('.meeting-row[data-id]');
+    if (!row) return;
+    $$('.time-bar[data-id="' + CSS.escape(row.dataset.id) + '"]', $('#meeting-board')).forEach(function (bar) { bar.classList.add('linked'); });
+  });
+  document.addEventListener('pointerup', function () {
+    $$('.time-bar.linked', $('#meeting-board')).forEach(function (bar) { bar.classList.remove('linked'); });
+  });
+  var meetingDrag = null;
+  $('#meeting-tasks').addEventListener('dragstart', function (e) {
+    var item = e.target.closest('.meeting-row[data-id], .meeting-group[data-gid]');
+    if (!item) return;
+    meetingDrag = item.classList.contains('meeting-group') ? { type: 'group', id: item.dataset.gid } : { type: 'task', id: item.dataset.id };
+    e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', meetingDrag.id);
+  });
+  $('#meeting-tasks').addEventListener('dragover', function (e) {
+    if (!meetingDrag) return;
+    var target = e.target.closest(meetingDrag.type === 'group' ? '.meeting-group[data-gid]' : '.meeting-row[data-id], .meeting-group[data-gid]');
+    if (!target || (meetingDrag.type === 'group' && !target.dataset.gid)) return;
+    e.preventDefault(); e.dataTransfer.dropEffect = 'move';
+    $$('.meeting-drag-target', $('#meeting-tasks')).forEach(function (x) { x.classList.remove('meeting-drag-target'); });
+    target.classList.add('meeting-drag-target');
+  });
+  $('#meeting-tasks').addEventListener('drop', function (e) {
+    if (!meetingDrag) return;
+    var target = e.target.closest(meetingDrag.type === 'group' ? '.meeting-group[data-gid]' : '.meeting-row[data-id], .meeting-group[data-gid]');
+    if (!target) return;
+    e.preventDefault();
+    var drag = meetingDrag; meetingDrag = null;
+    if (drag.type === 'group') {
+      if (!target.dataset.gid || target.dataset.gid === drag.id) return;
+      S.mutate(function (st) {
+        var from = st.groups.findIndex(function (g) { return g.id === drag.id; });
+        if (from < 0) return;
+        var moved = st.groups.splice(from, 1)[0];
+        var to = st.groups.findIndex(function (g) { return g.id === target.dataset.gid; });
+        st.groups.splice(to, 0, moved);
+      });
+    } else {
+      if (target.dataset.id === drag.id) return;
+      S.mutate(function (st) {
+        var from = st.todos.findIndex(function (t) { return t.id === drag.id; });
+        if (from < 0) return;
+        var moved = st.todos.splice(from, 1)[0];
+        if (target.classList.contains('meeting-group')) {
+          moved.group = target.dataset.gid || '';
+          var end = -1;
+          st.todos.forEach(function (t, i) { if (t.group === moved.group) end = i; });
+          st.todos.splice(end + 1, 0, moved);
+        } else {
+          var to = st.todos.findIndex(function (t) { return t.id === target.dataset.id; });
+          if (to < 0) { st.todos.splice(from, 0, moved); return; }
+          moved.group = st.todos[to].group;
+          st.todos.splice(to, 0, moved);
+        }
+      });
+    }
+    render();
+  });
+  $('#meeting-tasks').addEventListener('dragend', function () {
+    meetingDrag = null;
+    $$('.meeting-drag-target', $('#meeting-tasks')).forEach(function (x) { x.classList.remove('meeting-drag-target'); });
+    $$('.time-bar.linked', $('#meeting-board')).forEach(function (bar) { bar.classList.remove('linked'); });
+  });
+  function openMeetingCreate(groupId) {
     openSheet('<h3>新增任务</h3><label class="lbl" for="meeting-new">任务名称</label><input id="meeting-new" type="text">' +
       '<div style="height:16px"></div><button class="btn" id="meeting-create">创建并设置时间</button>', function (root) {
       $('#meeting-create', root).addEventListener('click', function () {
-        if (!addTodo($('#meeting-new', root).value)) return;
+        if (!addTodo($('#meeting-new', root).value, groupId || '')) return;
         var id = S.state.todos[S.state.todos.length - 1].id;
         closeSheet(); openTodoSheet(id);
       });
+      $('#meeting-new', root).addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); $('#meeting-create', root).click(); }
+      });
     });
-  });
+  }
+  $('#meeting-add').addEventListener('click', function () { openMeetingCreate(''); });
+  $('#meeting-new-group').addEventListener('click', askNewGroup);
+  $('#meeting-settings').addEventListener('click', function () { switchTab('set'); });
+  $('#meeting-back').addEventListener('click', function () { switchTab('meeting'); });
 
   // 日历页
   $('#cal-prev').addEventListener('click', function () {
@@ -1702,7 +1795,17 @@
     var q0;
     try { q0 = new URLSearchParams(location.search); } catch (e) { q0 = null; }
     var wantTab = q0 && q0.get('t');
-    if (wantTab) switchTab(wantTab);
+    var desktopMeeting = window.matchMedia('(min-width: 800px)');
+    document.body.classList.toggle('desktop-meeting', desktopMeeting.matches);
+    if (desktopMeeting.matches) switchTab('meeting');
+    else if (wantTab) switchTab(wantTab);
+    function resizeMeeting(e) {
+      document.body.classList.toggle('desktop-meeting', e.matches);
+      if (e.matches) switchTab('meeting');
+      else if (ui.tab === 'meeting') switchTab('todo');
+    }
+    if (desktopMeeting.addEventListener) desktopMeeting.addEventListener('change', resizeMeeting);
+    else if (desktopMeeting.addListener) desktopMeeting.addListener(resizeMeeting);
 
     var seenVersion = S.version;
     S.subscribe(function () {

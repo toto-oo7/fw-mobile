@@ -132,13 +132,17 @@
   <!-- ------------------------------------------------------------ 会议网页版 -->
   <section class="page" id="p-meeting">
     <div class="meeting-heading">
-      <div><h2>任务与时间</h2><p>会议中可直接修改任务及日期，改动会保存到当前账号。</p></div>
-      <button class="hbtn" id="meeting-add">＋ 新增任务</button>
+      <div><h2>任务清单 <span id="meeting-count"></span></h2></div>
+      <div class="meeting-actions">
+        <button class="hbtn" id="meeting-new-group">＋组</button>
+        <button class="hbtn" id="meeting-add">＋ 新增任务</button>
+        <button class="hbtn" id="meeting-settings" aria-label="账号与设置" title="账号与设置">设置</button>
+      </div>
     </div>
     <div class="meeting-layout">
       <div class="meeting-tasks" id="meeting-tasks"></div>
       <div class="meeting-schedule">
-        <div class="time-toolbar" id="meeting-toolbar"></div>
+        <div class="meeting-schedule-head"><h2>月时间轴</h2><div class="time-toolbar" id="meeting-toolbar"></div></div>
         <div class="time-board" id="meeting-board"></div>
       </div>
     </div>
@@ -146,6 +150,7 @@
 
   <!-- ------------------------------------------------------------ 设置 -->
   <section class="page" id="p-set">
+    <button class="hbtn" id="meeting-back">← 返回任务清单</button>
     <div id="set-body"></div>
   </section>
 

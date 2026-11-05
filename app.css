@@ -555,6 +555,13 @@ input, textarea { caret-color: var(--accent); }
 .meeting-row button { background: none; border: 0; color: var(--text); cursor: pointer; }
 .meeting-row .meeting-edit { min-width: 0; flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .meeting-row span { white-space: nowrap; font-size: 11px; color: var(--text-2); }
+.meeting-row .meeting-priority { display: inline-block; flex: 0 0 34px; text-align: center;
+  font-size: 11px; letter-spacing: -1px; line-height: 1; }
+.meeting-row .meeting-priority.priority-0 { color: #8190A3; }
+.meeting-row .meeting-priority.priority-1 { color: #A5B4F2; }
+.meeting-row .meeting-priority.priority-2 { color: #8295EC; }
+.meeting-row .meeting-priority.priority-3 { color: #526ACA; }
+.meeting-row .meeting-dates { display: block; max-width: 42%; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 799px) {
   #tabs button[data-tab="meeting"] { display: none; }
   .meeting-layout { display: block; }
@@ -670,4 +677,10 @@ input, textarea { caret-color: var(--accent); }
   body.meeting-mode .time-group { border-color: #182230; }
   body.meeting-mode .time-toolbar button { border-radius: 5px; }
   body.meeting-mode .time-bar { background: #BFCBEA; }
+  body.meeting-mode #sheet .btn[data-star] { border: 1px solid #D8E0EA; border-radius: 5px;
+    background: #F5F8FD; color: #8190A3; }
+  body.meeting-mode #sheet .btn[data-star].priority-1 { color: #A5B4F2; }
+  body.meeting-mode #sheet .btn[data-star].priority-2 { color: #8295EC; }
+  body.meeting-mode #sheet .btn[data-star].priority-3 { color: #526ACA; }
+  body.meeting-mode #sheet .btn[data-star]:not(.ghost) { border-color: currentColor; background: #E9EDFF; }
 }

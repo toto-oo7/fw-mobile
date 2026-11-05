@@ -27,7 +27,7 @@
        ① 这行常量  → 证明 app.js 是新的
        ② #tabs 的 computed position → 证明 app.css 是新的（旧版是 static，v8 起是 fixed）
        ③ 底栏底 / 视口高 → 直接量「到底贴没贴底」，不靠肉眼判断 */
-  var APP_BUILD = 'b26';
+  var APP_BUILD = 'b27';
 
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
@@ -555,9 +555,13 @@
     }
   }
   function meetingTask(t) {
+    var level = Math.max(0, Math.min(3, t.star || 0));
+    var dates = taskRanges(t).length ? taskRanges(t).map(rangeText).join('、') : '未排日期';
     return '<div class="meeting-row" data-id="' + esc(t.id) + '"><button data-act="toggle" aria-label="切换完成状态">' +
-      (t.done ? '✓' : '○') + '</button><button class="meeting-edit">' + esc(t.text) + '</button><span>' +
-      (taskRanges(t).length ? esc(taskRanges(t).map(rangeText).join('、')) : '未排日期') + '</span></div>';
+      (t.done ? '✓' : '○') + '</button><button class="meeting-edit">' + esc(t.text) + '</button>' +
+      '<span class="meeting-priority priority-' + level + '" role="img" aria-label="' +
+      ['普通', '重要', '很重要', '紧急'][level] + '" title="' + ['普通', '重要', '很重要', '紧急'][level] + '">' + stars(level) +
+      '</span><span class="meeting-dates" title="' + esc(dates) + '">' + esc(dates) + '</span></div>';
   }
   function timeBoardPointer(event) {
     var bar = event.target.closest('.time-bar[data-id]');
@@ -1222,7 +1226,7 @@
       '<div class="lbl">重要程度</div>' +
       '<div style="display:flex;gap:8px">' +
       [0, 1, 2, 3].map(function (n) {
-        return '<button class="btn' + (n === (t.star || 0) ? '' : ' ghost') + '" data-star="' + n +
+        return '<button class="btn priority-' + n + (n === (t.star || 0) ? '' : ' ghost') + '" data-star="' + n +
           '" aria-label="' + ['普通', '重要', '很重要', '紧急'][n] + '">' +
           stars(n) + '</button>';
       }).join('') + '</div>' +
@@ -1252,7 +1256,7 @@
           b.addEventListener('click', function () {
             star = parseInt(b.dataset.star, 10);
             $$('[data-star]', root).forEach(function (x) {
-              x.className = 'btn' + (parseInt(x.dataset.star, 10) === star ? '' : ' ghost');
+              x.className = 'btn priority-' + x.dataset.star + (parseInt(x.dataset.star, 10) === star ? '' : ' ghost');
             });
           });
         });

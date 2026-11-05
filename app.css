@@ -649,8 +649,29 @@ input, textarea { caret-color: var(--accent); }
 .time-grip::after { height: 11px; width: 2px; border-radius: 1px; box-shadow: none; }
 .edit-range { display: flex; align-items: center; gap: 6px; margin: 6px 0; }
 .edit-range input { min-width: 0; flex: 1; }
+.range-date-trigger { display: none; }
 .edit-range .range-remove { flex: 0 0 30px; height: 34px; border: 0; border-radius: 5px;
   background: var(--card-2); color: var(--red); font-size: 19px; cursor: pointer; }
+.range-picker { position: fixed; z-index: 60; width: 318px; padding: 10px 12px 12px;
+  background: var(--card); border: 1px solid var(--line); border-radius: 8px;
+  box-shadow: 0 12px 30px rgba(24,34,48,.16); }
+.range-picker-nav { display: flex; align-items: center; justify-content: space-between; height: 28px; }
+.range-picker-nav strong { color: var(--text); font: 600 13px "Source Code Pro", ui-monospace, monospace; }
+.range-picker-nav button { width: 28px; height: 28px; border: 0; border-radius: 5px;
+  background: transparent; color: var(--text-2); font-size: 20px; font-family: inherit; cursor: pointer; }
+.range-picker-nav button:hover, .range-picker-day:hover { background: var(--accent-soft); }
+.range-picker-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-top: 6px; }
+.range-picker-week { height: 24px; display: grid; place-items: center; color: var(--text-2); font-size: 11px; }
+.range-picker-day { height: 36px; display: grid; place-items: center; border: 0; border-radius: 5px;
+  background: transparent; color: var(--text); font-size: 12px; font-family: inherit; cursor: pointer; }
+.range-picker-day.out { color: var(--text-3); }
+.range-picker-day span { position: relative; width: 24px; height: 24px; display: grid; place-items: center; }
+.range-picker-day.today span { border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+.range-picker-day.selected:not(.today) span { border: 1px solid var(--line); border-radius: 50%; }
+.range-picker-day.event span::after, .range-picker-day.meeting span::after, .range-picker-day.mixed span::after {
+  content: ''; position: absolute; inset: 0; border: 1.5px solid var(--red); border-radius: 50%; }
+.range-picker-day.meeting span::after { border-color: #3478F6; }
+.range-picker-day.mixed span::after { border-color: var(--red) #3478F6 #3478F6 var(--red); }
 .event-kind { border: 0; background: transparent; color: var(--red); font-size: 11px; cursor: pointer; }
 .event-kind.meeting { color: #3478F6; }
 #calgrid .d .day-num { position: relative; display: grid; place-items: center; min-width: 25px; min-height: 25px; }
@@ -661,6 +682,15 @@ input, textarea { caret-color: var(--accent); }
 #calgrid .d.mixed .day-num::after { border-color: var(--red) #3478F6 #3478F6 var(--red); }
 @media (min-width: 800px) {
   body.meeting-mode { --radius: 8px; }
+  body.meeting-mode #calhdr { justify-content: space-between; gap: 2px; }
+  body.meeting-mode #calhdr .m { min-width: 0; font: 600 13px "Source Code Pro", ui-monospace, monospace; }
+  body.meeting-mode #calhdr button { color: var(--text-2); }
+  body.meeting-mode .edit-range .range-native { display: none; }
+  body.meeting-mode .edit-range .range-date-trigger { display: block; min-width: 0; flex: 1;
+    height: 34px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 5px;
+    background: var(--card); color: var(--text); font: 12px "Source Code Pro", ui-monospace, monospace;
+    text-align: center; white-space: nowrap; cursor: pointer; }
+  body.meeting-mode .edit-range .range-date-trigger:hover { border-color: var(--accent); }
   body.meeting-mode .meeting-tasks, body.meeting-mode .time-board,
   body.meeting-mode .card { border-radius: 6px; }
   body.meeting-mode .meeting-layout { gap: 12px; }

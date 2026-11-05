@@ -27,7 +27,7 @@
        ① 这行常量  → 证明 app.js 是新的
        ② #tabs 的 computed position → 证明 app.css 是新的（旧版是 static，v8 起是 fixed）
        ③ 底栏底 / 视口高 → 直接量「到底贴没贴底」，不靠肉眼判断 */
-  var APP_BUILD = 'b27';
+  var APP_BUILD = 'b28';
 
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
@@ -91,12 +91,20 @@
     sh.focus({ preventScroll: true });
   }
 
-  function closeSheet() { if (sheetClose) sheetClose(); }
+  function closeSheet() { closeRangePicker(); if (sheetClose) sheetClose(); }
 
   $('#scrim').addEventListener('click', closeSheet);
   $('#sheet-close').addEventListener('click', closeSheet);
+  document.addEventListener('pointerdown', function (e) {
+    var picker = $('.range-picker');
+    if (picker && !picker.contains(e.target) && !e.target.closest('.range-date-trigger')) closeRangePicker();
+  });
   document.addEventListener('keydown', function (e) {
     if (!sheetClose) return;
+    var picker = $('.range-picker');
+    if (picker && (e.key === 'Escape' || e.key === 'Tab')) {
+      e.preventDefault(); var trigger = picker.trigger; closeRangePicker(); trigger.focus(); return;
+    }
     if (e.key === 'Escape') { e.preventDefault(); closeSheet(); return; }
     if (e.key !== 'Tab') return;
     var controls = $$('#sheet button, #sheet input, #sheet textarea, #sheet select, #sheet a[href]')
@@ -599,14 +607,91 @@
   function pad2(n) { return String(n).padStart(2, '0'); }
   function dayKey(y, m, d) { return y + '-' + pad2(m + 1) + '-' + pad2(d); }
 
+  function rangeDateField(value, label) {
+    return '<input class="range-native" type="date" aria-label="' + label + '" value="' + esc(value || '') + '">' +
+      '<button type="button" class="range-date-trigger" data-label="' + label + '" aria-label="' + label + '，' +
+      (value ? esc(value.replace(/-/g, '/')) : '未选择') + '" aria-haspopup="dialog" aria-expanded="false">' +
+      (value ? esc(value.replace(/-/g, '/')) : '选择日期') + '</button>';
+  }
+
+  function closeRangePicker() {
+    var picker = $('.range-picker');
+    if (!picker) return;
+    if (picker.trigger) picker.trigger.setAttribute('aria-expanded', 'false');
+    picker.remove();
+  }
+
+  function openRangePicker(trigger) {
+    closeRangePicker();
+    var input = trigger.previousElementSibling;
+    var initial = input.value || dayKey(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+    var selected = new Date(initial + 'T12:00:00');
+    var y = selected.getFullYear(), m = selected.getMonth();
+    var picker = document.createElement('div');
+    picker.className = 'range-picker';
+    picker.setAttribute('role', 'dialog');
+    picker.setAttribute('aria-label', '选择日期');
+    picker.trigger = trigger;
+    document.body.appendChild(picker);
+    trigger.setAttribute('aria-expanded', 'true');
+
+    function draw() {
+      var value = dayKey(selected.getFullYear(), selected.getMonth(), selected.getDate());
+      var first = new Date(y, m, 1), offset = (first.getDay() + 6) % 7;
+      var start = new Date(y, m, 1 - offset), now = new Date();
+      var today = dayKey(now.getFullYear(), now.getMonth(), now.getDate());
+      var days = '';
+      for (var i = 0; i < 42; i++) {
+        var d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+        var key = dayKey(d.getFullYear(), d.getMonth(), d.getDate());
+        var notes = S.state.cal[key] || [];
+        var kinds = new Set(notes.map(function (x) { return x.kind === 'meeting' ? 'meeting' : 'event'; }));
+        var ring = kinds.size === 2 ? ' mixed' : (kinds.has('meeting') ? ' meeting' : (kinds.has('event') ? ' event' : ''));
+        days += '<button type="button" class="range-picker-day' + (d.getMonth() !== m ? ' out' : '') +
+          (key === today ? ' today' : '') + (key === value ? ' selected' : '') + ring +
+          '" data-pick-day="' + key + '" aria-label="' + key + '"' + (key === value ? ' aria-pressed="true"' : '') +
+          '><span>' + d.getDate() + '</span></button>';
+      }
+      picker.innerHTML = '<div class="range-picker-nav"><button type="button" data-pick-month="-1" aria-label="上个月">‹</button>' +
+        '<strong>' + value.replace(/-/g, '/') + '</strong><button type="button" data-pick-month="1" aria-label="下个月">›</button></div>' +
+        '<div class="range-picker-grid">' + ['一', '二', '三', '四', '五', '六', '日'].map(function (w) { return '<span class="range-picker-week">' + w + '</span>'; }).join('') +
+        days + '</div>';
+      var rect = trigger.getBoundingClientRect();
+      picker.style.left = Math.max(8, Math.min(rect.left, innerWidth - picker.offsetWidth - 8)) + 'px';
+      picker.style.top = Math.max(8, rect.bottom + picker.offsetHeight + 8 <= innerHeight ? rect.bottom + 4 : rect.top - picker.offsetHeight - 4) + 'px';
+    }
+    picker.addEventListener('click', function (e) {
+      var month = e.target.closest('[data-pick-month]');
+      if (month) {
+        var direction = month.dataset.pickMonth;
+        var next = new Date(y, m + Number(direction), 1);
+        y = next.getFullYear(); m = next.getMonth();
+        selected = new Date(y, m, Math.min(selected.getDate(), new Date(y, m + 1, 0).getDate()));
+        draw(); picker.querySelector('[data-pick-month="' + direction + '"]').focus(); return;
+      }
+      var day = e.target.closest('[data-pick-day]');
+      if (day) {
+        input.value = day.dataset.pickDay;
+        trigger.textContent = input.value.replace(/-/g, '/');
+        trigger.setAttribute('aria-label', trigger.dataset.label + '，' + trigger.textContent);
+        closeRangePicker(); trigger.focus();
+      }
+    });
+    draw();
+    var active = picker.querySelector('.range-picker-day.selected');
+    if (active) active.focus();
+  }
+
   function renderCal() {
     if (!ui.calY) { var t = new Date(); ui.calY = t.getFullYear(); ui.calM = t.getMonth(); }
-    $('#cal-title').textContent = ui.calY + '年' + (ui.calM + 1) + '月';
-
     var first = new Date(ui.calY, ui.calM, 1);
     var start = new Date(ui.calY, ui.calM, 1 - first.getDay());
     var today = new Date();
     var tkey = dayKey(today.getFullYear(), today.getMonth(), today.getDate());
+    var monthKey = ui.calY + '-' + pad2(ui.calM + 1);
+    var shownDay = ui.selDay && ui.selDay.slice(0, 7) === monthKey ? ui.selDay :
+      (tkey.slice(0, 7) === monthKey ? tkey : monthKey + '-01');
+    $('#cal-title').textContent = shownDay.replace(/-/g, '/');
 
     var h = '';
     WEEK.forEach(function (w) { h += '<div class="wk">' + w + '</div>'; });
@@ -1239,18 +1324,20 @@
         function drawRanges() {
           var ranges = taskRanges(t);
           $('#e-ranges', root).innerHTML = ranges.map(function (r, i) {
-            return '<div class="edit-range" data-range="' + i + '"><input type="date" aria-label="第 ' + (i + 1) + ' 段开始日期" value="' + esc(r.start) + '">' +
-              '<span>—</span><input type="date" aria-label="第 ' + (i + 1) + ' 段完成日期" value="' + esc(r.end) + '">' +
+            return '<div class="edit-range" data-range="' + i + '">' + rangeDateField(r.start, '第 ' + (i + 1) + ' 段开始日期') +
+              '<span>—</span>' + rangeDateField(r.end, '第 ' + (i + 1) + ' 段完成日期') +
               '<button type="button" class="range-remove" aria-label="删除第 ' + (i + 1) + ' 段">×</button></div>';
           }).join('');
         }
         drawRanges();
         $('#e-add-range', root).addEventListener('click', function () {
-          $('#e-ranges', root).insertAdjacentHTML('beforeend', '<div class="edit-range"><input type="date" aria-label="新时间段开始日期"><span>—</span>' +
-            '<input type="date" aria-label="新时间段完成日期"><button type="button" class="range-remove" aria-label="删除这一段">×</button></div>');
+          $('#e-ranges', root).insertAdjacentHTML('beforeend', '<div class="edit-range">' + rangeDateField('', '新时间段开始日期') +
+            '<span>—</span>' + rangeDateField('', '新时间段完成日期') + '<button type="button" class="range-remove" aria-label="删除这一段">×</button></div>');
         });
         $('#e-ranges', root).addEventListener('click', function (e) {
-          if (e.target.closest('.range-remove')) e.target.closest('.edit-range').remove();
+          var trigger = e.target.closest('.range-date-trigger');
+          if (trigger) { openRangePicker(trigger); return; }
+          if (e.target.closest('.range-remove')) { closeRangePicker(); e.target.closest('.edit-range').remove(); }
         });
         $$('[data-star]', root).forEach(function (b) {
           b.addEventListener('click', function () {

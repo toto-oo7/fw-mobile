@@ -27,7 +27,7 @@
        ① 这行常量  → 证明 app.js 是新的
        ② #tabs 的 computed position → 证明 app.css 是新的（旧版是 static，v8 起是 fixed）
        ③ 底栏底 / 视口高 → 直接量「到底贴没贴底」，不靠肉眼判断 */
-  var APP_BUILD = 'b29';
+  var APP_BUILD = 'b30';
 
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
@@ -545,6 +545,81 @@
       '<div class="time-header"><div class="time-month"><button data-month="-1" aria-label="上个月">‹</button><strong>' + y + '/' + pad2(m + 1) +
       '</strong><button data-month="1" aria-label="下个月">›</button></div><div class="time-days">' + days + '</div></div>' + rows + '</div>';
   }
+  function meetingAxisHtml(p) {
+    var now = new Date(), originDate = new Date(now), endDate = new Date(now);
+    originDate.setHours(12, 0, 0, 0); endDate.setHours(12, 0, 0, 0);
+    originDate.setDate(originDate.getDate() - 30); endDate.setDate(endDate.getDate() + 365);
+    S.state.todos.forEach(function (t) { taskRanges(t).forEach(function (r) {
+      var start = new Date(r.start + 'T12:00:00'), end = new Date(r.end + 'T12:00:00');
+      start.setDate(start.getDate() - 4); end.setDate(end.getDate() + 7);
+      if (start < originDate) originDate = start;
+      if (end > endDate) endDate = end;
+    }); });
+    var origin = isoDay(originDate), last = isoDay(endDate);
+    var count = Math.round((endDate - originDate) / 86400000) + 1;
+    var head = '', shade = '', months = '', today = isoDay(new Date());
+    for (var d = 0; d < count; d++) {
+      var date = new Date(originDate.getFullYear(), originDate.getMonth(), originDate.getDate() + d);
+      var key = isoDay(date), weekend = date.getDay() % 6 === 0;
+      if (date.getDate() === 1) months += '<span class="meeting-axis-month" style="left:' + (d * 30 + 3) + 'px">' +
+        date.getFullYear() + '.' + pad2(date.getMonth() + 1) + '</span>';
+      head += '<button class="meeting-axis-day' + (weekend ? ' weekend' : '') + (key === today ? ' today' : '') +
+        '" data-day="' + key + '" aria-label="' + key + '">' + pad2(date.getDate()) + '</button>';
+      if (weekend) shade += '<span style="left:' + d * 30 + 'px"></span>';
+    }
+    function clipped(start, end) {
+      if (start > last || end < origin) return null;
+      var a = Math.max(0, Math.round((new Date(start + 'T12:00:00') - new Date(origin + 'T12:00:00')) / 86400000));
+      var b = Math.min(count - 1, Math.round((new Date(end + 'T12:00:00') - new Date(origin + 'T12:00:00')) / 86400000));
+      return { left: a * 30 + 2, width: (b - a + 1) * 30 - 4 };
+    }
+    function taskRow(t) {
+      var bars = taskRanges(t).map(function (r, slot) {
+        var pos = clipped(r.start, r.end);
+        if (!pos) return '';
+        return '<button class="time-bar meeting-axis-bar priority-' + (t.star || 0) + '" data-id="' + esc(t.id) +
+          '" data-slot="' + slot + '" style="left:' + pos.left + 'px;width:' + pos.width + 'px" title="' +
+          esc(t.text + ' · ' + rangeText(r)) + '" aria-label="编辑 ' + esc(t.text) + '，' + rangeText(r) + '">' +
+          '<span class="time-grip" data-edge="start" aria-hidden="true"></span><span class="time-bar-text">' +
+          esc(t.text) + '</span><span class="time-grip" data-edge="end" aria-hidden="true"></span></button>';
+      }).join('');
+      return '<div class="meeting-axis-row task" data-id="' + esc(t.id) + '">' + bars + '</div>';
+    }
+    function groupRow(items) {
+      var segments = [];
+      visible(items).forEach(function (t) {
+        taskRanges(t).forEach(function (r, slot) {
+          var pos = clipped(r.start, r.end);
+          if (pos) segments.push({ task: t, range: r, slot: slot, pos: pos });
+        });
+      });
+      if (!segments.length) return '<div class="meeting-axis-row group"></div>';
+      var left = Math.min.apply(null, segments.map(function (x) { return x.pos.left; }));
+      var right = Math.max.apply(null, segments.map(function (x) { return x.pos.left + x.pos.width; }));
+      return '<div class="meeting-axis-row group"><span class="meeting-axis-summary" style="left:' + left + 'px;width:' +
+        (right - left) + 'px"></span>' + segments.map(function (x) {
+          return '<button class="meeting-axis-segment priority-' + (x.task.star || 0) + '" data-id="' + esc(x.task.id) +
+            '" style="left:' + x.pos.left + 'px;width:' + x.pos.width + 'px" title="' +
+            esc(x.task.text + ' · ' + rangeText(x.range)) + '">' + esc(x.task.text) + '</button>';
+        }).join('') + '</div>';
+    }
+    var rows = '';
+    p.groups.forEach(function (g) {
+      rows += groupRow(g.items);
+      if (!g.g.collapsed) rows += visible(g.items).map(taskRow).join('');
+    });
+    if (p.loose.length) {
+      rows += groupRow(p.loose);
+      if (!S.state.loose_collapsed) rows += visible(p.loose).map(taskRow).join('');
+    }
+    var todayOffset = Math.round((new Date(today + 'T12:00:00') - new Date(origin + 'T12:00:00')) / 86400000);
+    return { origin: origin, days: count, todayOffset: todayOffset,
+      head: '<div class="meeting-axis-head-inner" style="--axis-days:' + count + '">' + months +
+        '<div class="meeting-axis-days">' + head + '</div></div>',
+      body: '<div class="meeting-axis-canvas" style="--axis-days:' + count + '"><div class="meeting-axis-shading">' +
+        shade + '</div>' + (todayOffset >= 0 && todayOffset < count ? '<div class="meeting-axis-now" style="left:' +
+        (todayOffset * 30 + 15) + 'px"></div>' : '') + rows + '</div>' };
+  }
   function renderTime(meeting) {
     if (!ui.timeY) { var d = new Date(); ui.timeY = d.getFullYear(); ui.timeM = d.getMonth(); }
     var toolbar = $('#' + (meeting ? 'meeting' : 'time') + '-toolbar');
@@ -571,6 +646,16 @@
       updateHTML(taskList, list || '<div class="hint">还没有任务</div>');
       taskList.scrollTop = taskScroll;
       $('#meeting-count').textContent = p.groups.reduce(function (n, g) { return n + g.done; }, p.looseDone) + '/' + S.state.todos.length;
+      var axis = $('#meeting-axis'), axisHead = $('#meeting-axis-head');
+      var axisMarkup = meetingAxisHtml(p), sameOrigin = axis.dataset.origin === axisMarkup.origin;
+      var axisX = axis.scrollLeft;
+      updateHTML(axisHead, axisMarkup.head);
+      updateHTML(axis, axisMarkup.body);
+      axis.dataset.origin = axisMarkup.origin;
+      axis.dataset.days = axisMarkup.days;
+      axis.scrollLeft = sameOrigin ? axisX : Math.max(0, (axisMarkup.todayOffset - 5) * 30);
+      axis.scrollTop = taskScroll;
+      axisHead.scrollLeft = axis.scrollLeft;
     }
   }
   function meetingTask(t) {
@@ -588,12 +673,13 @@
     if (!task) return;
     var ranges = taskRanges(task), slot = Number(bar.dataset.slot), range = ranges[slot];
     if (!range) return;
+    var step = bar.closest('#meeting-axis') ? 30 : 44;
     var edge = event.target.closest('[data-edge]');
     var mode = edge ? edge.dataset.edge : 'move', origin = event.clientX, delta = 0;
     bar.setPointerCapture(event.pointerId);
     bar.onpointermove = function (e) {
-      delta = Math.round((e.clientX - origin) / 44);
-      bar.style.transform = mode === 'move' ? 'translateX(' + (delta * 44) + 'px)' : '';
+      delta = Math.round((e.clientX - origin) / step);
+      bar.style.transform = mode === 'move' ? 'translateX(' + (delta * step) + 'px)' : '';
     };
     bar.onpointerup = function () {
       bar.onpointermove = bar.onpointerup = null;
@@ -1175,10 +1261,59 @@
   $('#meeting-tasks').addEventListener('pointerdown', function (e) {
     var row = e.target.closest('.meeting-row[data-id]');
     if (!row) return;
-    $$('.time-bar[data-id="' + CSS.escape(row.dataset.id) + '"]', $('#meeting-board')).forEach(function (bar) { bar.classList.add('linked'); });
+    $$('.time-bar[data-id="' + CSS.escape(row.dataset.id) + '"]', $('#p-meeting')).forEach(function (bar) { bar.classList.add('linked'); });
   });
   document.addEventListener('pointerup', function () {
-    $$('.time-bar.linked', $('#meeting-board')).forEach(function (bar) { bar.classList.remove('linked'); });
+    $$('.time-bar.linked', $('#p-meeting')).forEach(function (bar) { bar.classList.remove('linked'); });
+  });
+  $('#meeting-tasks').addEventListener('scroll', function () { $('#meeting-axis').scrollTop = this.scrollTop; });
+  $('#meeting-axis').addEventListener('scroll', function () {
+    $('#meeting-tasks').scrollTop = this.scrollTop;
+    $('#meeting-axis-head').scrollLeft = this.scrollLeft;
+  });
+  $('#meeting-axis-head').addEventListener('click', function (e) {
+    var day = e.target.closest('[data-day]');
+    if (day) openDay(day.dataset.day);
+  });
+  $('#meeting-axis-today').addEventListener('click', function () {
+    var today = new Date();
+    var axis = $('#meeting-axis'), origin = axis.dataset.origin;
+    axis.scrollLeft = Math.max(0, (Math.round((new Date(isoDay(today) + 'T12:00:00') -
+      new Date(origin + 'T12:00:00')) / 86400000) - 5) * 30);
+  });
+  $('#meeting-axis').addEventListener('pointerdown', timeBoardPointer);
+  $('#meeting-axis').addEventListener('pointerdown', function (e) {
+    if (e.button !== 0 || e.target.closest('.time-bar, .meeting-axis-segment')) return;
+    var row = e.target.closest('.meeting-axis-row.task[data-id]');
+    if (!row) return;
+    var axis = $('#meeting-axis'), count = Number(axis.dataset.days), origin = axis.dataset.origin;
+    var indexAt = function (x) { return Math.max(0, Math.min(count - 1, Math.floor((x - row.getBoundingClientRect().left) / 30))); };
+    var first = indexAt(e.clientX), last = first;
+    var task = S.state.todos.find(function (t) { return t.id === row.dataset.id; });
+    if (!task) return;
+    var preview = document.createElement('span');
+    preview.className = 'meeting-axis-preview priority-' + (task.star || 0);
+    row.appendChild(preview);
+    function draw() {
+      preview.style.left = (Math.min(first, last) * 30 + 2) + 'px';
+      preview.style.width = ((Math.abs(last - first) + 1) * 30 - 4) + 'px';
+    }
+    draw(); row.setPointerCapture(e.pointerId);
+    row.onpointermove = function (move) { last = indexAt(move.clientX); draw(); };
+    row.onpointercancel = function () { row.onpointermove = row.onpointerup = row.onpointercancel = null; preview.remove(); };
+    row.onpointerup = function () {
+      row.onpointermove = row.onpointerup = row.onpointercancel = null;
+      preview.remove();
+      var start = shiftDay(origin, Math.min(first, last)), end = shiftDay(origin, Math.max(first, last));
+      S.mutate(function (st) { st.todos.forEach(function (t) {
+        if (t.id === task.id) setTaskRanges(t, taskRanges(t).concat({ start: start, end: end }));
+      }); });
+      ui.timeDragEnded = Date.now(); render();
+    };
+  });
+  $('#meeting-axis').addEventListener('click', function (e) {
+    var bar = e.target.closest('.time-bar[data-id], .meeting-axis-segment[data-id]');
+    if (bar && Date.now() - ui.timeDragEnded >= 300) openTodoSheet(bar.dataset.id);
   });
   var meetingDrag = null;
   $('#meeting-tasks').addEventListener('dragstart', function (e) {
@@ -1234,7 +1369,7 @@
   $('#meeting-tasks').addEventListener('dragend', function () {
     meetingDrag = null;
     $$('.meeting-drag-target', $('#meeting-tasks')).forEach(function (x) { x.classList.remove('meeting-drag-target'); });
-    $$('.time-bar.linked', $('#meeting-board')).forEach(function (bar) { bar.classList.remove('linked'); });
+    $$('.time-bar.linked', $('#p-meeting')).forEach(function (bar) { bar.classList.remove('linked'); });
   });
   function openMeetingCreate(groupId) {
     openSheet('<h3>新增任务</h3><label class="lbl" for="meeting-new">任务名称</label><input id="meeting-new" type="text">' +

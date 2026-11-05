@@ -27,7 +27,7 @@
        ① 这行常量  → 证明 app.js 是新的
        ② #tabs 的 computed position → 证明 app.css 是新的（旧版是 static，v8 起是 fixed）
        ③ 底栏底 / 视口高 → 直接量「到底贴没贴底」，不靠肉眼判断 */
-  var APP_BUILD = 'b31';
+  var APP_BUILD = 'b32';
 
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
@@ -1137,6 +1137,22 @@
   $('#tabs').addEventListener('click', function (e) {
     var b = e.target.closest('button[data-tab]');
     if (b) switchTab(b.dataset.tab);
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (ui.tab !== 'meeting' || sheetClose || e.repeat || e.isComposing || !e.ctrlKey ||
+        !e.shiftKey || e.altKey || e.metaKey || e.code !== 'KeyG' ||
+        e.target.closest('input, textarea, select, [contenteditable="true"]')) return;
+    e.preventDefault();
+    var p = plan(), states = p.groups.map(function (g) { return !!g.g.collapsed; });
+    if (p.loose.length) states.push(!!S.state.loose_collapsed);
+    if (!states.length) return;
+    var expand = states.every(Boolean);
+    S.mutate(function (st) {
+      st.groups.forEach(function (g) { g.collapsed = !expand; });
+      if (p.loose.length) st.loose_collapsed = !expand;
+    });
+    render();
   });
 
   // 顶栏动作

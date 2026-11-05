@@ -612,7 +612,7 @@ input, textarea { caret-color: var(--accent); }
     position: absolute; left: 0; right: 0; bottom: 0; height: 22px; }
   body.desktop-meeting .meeting-axis-day { text-align: center; color: var(--text-2);
     font: 10px/22px "Source Code Pro", ui-monospace, monospace; border: 0;
-    border-right: 1px solid var(--line); background: transparent; padding: 0; cursor: pointer; }
+    border-right: 1px solid var(--line); background: transparent; padding: 0; }
   body.desktop-meeting .meeting-axis-day.weekend { background: #F1F3F6; }
   body.desktop-meeting .meeting-axis-day.today { color: var(--accent); font-weight: 700; }
   body.desktop-meeting .meeting-axis-shading, body.desktop-meeting .meeting-axis-now { position: absolute; top: 0; bottom: 0; pointer-events: none; }

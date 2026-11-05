@@ -27,7 +27,7 @@
        ① 这行常量  → 证明 app.js 是新的
        ② #tabs 的 computed position → 证明 app.css 是新的（旧版是 static，v8 起是 fixed）
        ③ 底栏底 / 视口高 → 直接量「到底贴没贴底」，不靠肉眼判断 */
-  var APP_BUILD = 'b30';
+  var APP_BUILD = 'b31';
 
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
@@ -563,8 +563,8 @@
       var key = isoDay(date), weekend = date.getDay() % 6 === 0;
       if (date.getDate() === 1) months += '<span class="meeting-axis-month" style="left:' + (d * 30 + 3) + 'px">' +
         date.getFullYear() + '.' + pad2(date.getMonth() + 1) + '</span>';
-      head += '<button class="meeting-axis-day' + (weekend ? ' weekend' : '') + (key === today ? ' today' : '') +
-        '" data-day="' + key + '" aria-label="' + key + '">' + pad2(date.getDate()) + '</button>';
+      head += '<span class="meeting-axis-day' + (weekend ? ' weekend' : '') + (key === today ? ' today' : '') +
+        '">' + pad2(date.getDate()) + '</span>';
       if (weekend) shade += '<span style="left:' + d * 30 + 'px"></span>';
     }
     function clipped(start, end) {
@@ -1270,10 +1270,6 @@
   $('#meeting-axis').addEventListener('scroll', function () {
     $('#meeting-tasks').scrollTop = this.scrollTop;
     $('#meeting-axis-head').scrollLeft = this.scrollLeft;
-  });
-  $('#meeting-axis-head').addEventListener('click', function (e) {
-    var day = e.target.closest('[data-day]');
-    if (day) openDay(day.dataset.day);
   });
   $('#meeting-axis-today').addEventListener('click', function () {
     var today = new Date();

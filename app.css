@@ -595,3 +595,79 @@ input, textarea { caret-color: var(--accent); }
   #hdr, #p-meeting.page { width: min(calc(100% - 32px), 1440px); margin-inline: auto; }
   #p-meeting .meeting-schedule { min-width: 0; }
 }
+
+/* 月轴与桌面浮窗共用紧凑的分组结构。移动端保留自己的主题变量。 */
+.time-board { border-radius: 8px; }
+.time-canvas { width: calc(150px + var(--days) * 44px); min-width: 100%; padding-bottom: 2px; }
+.time-header { position: relative; z-index: 3; display: grid;
+  grid-template-columns: 150px calc(var(--days) * 44px); height: 28px;
+  background: var(--card); border-bottom: 1px solid var(--line); }
+.time-month { display: flex; align-items: center; justify-content: space-between;
+  padding: 0 5px; color: var(--text-2); border-right: 1px solid var(--line); }
+.time-month strong { font: 600 11px "Source Code Pro", ui-monospace, monospace; }
+.time-month button { width: 24px; height: 24px; padding: 0; border: 0; background: none;
+  color: var(--text-2); cursor: pointer; font-size: 17px; }
+.time-days { grid-template-columns: repeat(var(--days), 44px); height: 27px; }
+.time-day { position: relative; display: grid; place-items: center; padding: 0; border: 0;
+  border-right: 1px solid var(--line); border-radius: 0; background: transparent;
+  color: var(--text-2); font: 10px "Source Code Pro", ui-monospace, monospace; cursor: pointer; }
+.time-day.weekend { background: color-mix(in srgb, var(--text-2) 8%, var(--card)); }
+.time-day.today { color: var(--accent); font-weight: 700; background: transparent; }
+.time-day.event::after, .time-day.meeting::after, .time-day.mixed::after {
+  content: ''; position: absolute; width: 20px; height: 20px; border: 1.5px solid var(--red);
+  border-radius: 50%; pointer-events: none; }
+.time-day.meeting::after { border-color: #3478F6; }
+.time-day.mixed::after { border-color: var(--red) #3478F6 #3478F6 var(--red); }
+.time-weekends { left: 150px; top: 28px; bottom: 0; }
+.time-weekend { background: color-mix(in srgb, var(--text-2) 8%, var(--card)); }
+.time-now { position: absolute; z-index: 2; top: 28px; bottom: 0; width: 1.5px;
+  background: #E65050; pointer-events: none; }
+.time-section { position: relative; z-index: 1; display: grid;
+  grid-template-columns: 150px calc(var(--days) * 44px);
+  grid-template-rows: repeat(var(--rows), 30px); }
+.time-group { grid-column: 1; grid-row: 1 / span var(--rows); display: flex;
+  align-items: center; justify-content: center; text-align: center; padding: 4px 8px;
+  font-size: 11px; font-weight: 700; color: var(--text); background: var(--card-2);
+  border: 1px solid var(--text-2); border-radius: 0; }
+.time-row { grid-column: 2; display: grid; grid-template-columns: repeat(var(--days), 44px);
+  min-height: 30px; height: 30px; align-items: center; border-bottom: 1px solid var(--line);
+  background: repeating-linear-gradient(to right, var(--line) 0 1px, transparent 1px 44px); }
+.time-bar { position: relative; z-index: 1; height: 20px; min-height: 20px; margin: 0 2px;
+  border-radius: 4px; background: #BFCBEA; color: #23324B; box-shadow: 0 1px 2px rgba(45,60,95,.08); }
+.time-bar.priority-1 { background: #C3CEFF; }
+.time-bar.priority-2 { background: #B8C3FD; }
+.time-bar.priority-3 { background: #7184E6; color: #fff; }
+.time-bar-text { font-size: 10px; }
+.time-grip { width: 9px; height: 20px; flex-basis: 9px; }
+.time-grip::after { height: 11px; width: 2px; border-radius: 1px; box-shadow: none; }
+.edit-range { display: flex; align-items: center; gap: 6px; margin: 6px 0; }
+.edit-range input { min-width: 0; flex: 1; }
+.edit-range .range-remove { flex: 0 0 30px; height: 34px; border: 0; border-radius: 5px;
+  background: var(--card-2); color: var(--red); font-size: 19px; cursor: pointer; }
+.event-kind { border: 0; background: transparent; color: var(--red); font-size: 11px; cursor: pointer; }
+.event-kind.meeting { color: #3478F6; }
+#calgrid .d .day-num { position: relative; display: grid; place-items: center; min-width: 25px; min-height: 25px; }
+#calgrid .d.event .day-num::after, #calgrid .d.meeting .day-num::after, #calgrid .d.mixed .day-num::after {
+  content: ''; position: absolute; inset: 0; border: 1.5px solid var(--red);
+  border-radius: 50%; pointer-events: none; }
+#calgrid .d.meeting .day-num::after { border-color: #3478F6; }
+#calgrid .d.mixed .day-num::after { border-color: var(--red) #3478F6 #3478F6 var(--red); }
+@media (min-width: 800px) {
+  body.meeting-mode { --radius: 8px; }
+  body.meeting-mode .meeting-tasks, body.meeting-mode .time-board,
+  body.meeting-mode .card { border-radius: 6px; }
+  body.meeting-mode .meeting-layout { gap: 12px; }
+  body.meeting-mode .meeting-heading { padding: 16px 0 10px; }
+  body.meeting-mode .meeting-heading h2 { font-size: 22px; letter-spacing: -.04em; }
+  body.meeting-mode #meeting-add { padding: 8px 12px; border-radius: 5px;
+    background: #182230; color: #fff; font-size: 13px; font-weight: 600; }
+  body.meeting-mode #meeting-add:hover { background: #2868DF; }
+  body.meeting-mode .meeting-row:hover { background: #F5F8FD; }
+  body.meeting-mode .time-bar:hover { outline: 1px solid #405EAA; }
+  body.meeting-mode #sheet { border-radius: 8px 8px 0 0; }
+  body.meeting-mode #sheet-close { border-radius: 5px; }
+  body.meeting-mode .meeting-group, body.meeting-mode .time-group { background: #EEF2F7; }
+  body.meeting-mode .time-group { border-color: #182230; }
+  body.meeting-mode .time-toolbar button { border-radius: 5px; }
+  body.meeting-mode .time-bar { background: #BFCBEA; }
+}

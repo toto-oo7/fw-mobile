@@ -104,9 +104,9 @@
   /** 空状态。字段名和桌面端 `小浮窗数据.json` 完全一致。 */
   function emptyState() {
     return {
-      todos: [],            // [{id, text, note, done, star, group, done_at, start_date, end_date}]
+      todos: [],            // [{id, text, note, done, star, group, done_at, start_date, end_date, extra_ranges}]
       groups: [],           // [{id, name, collapsed}]
-      cal: {},              // { 'YYYY-MM-DD': [{id, text, group, done}] }
+      cal: {},              // { 'YYYY-MM-DD': [{id, text, group, done, kind}] }
       memo_html: '',
       memo_updated: '',
       loose_collapsed: false
@@ -125,7 +125,10 @@
         done: !!t.done, star: Math.max(0, Math.min(3, parseInt(t.star, 10) || 0)),
         group: String(t.group || ''),
         done_at: String(t.done_at || ''),
-        start_date: String(t.start_date || ''), end_date: String(t.end_date || '')
+        start_date: String(t.start_date || ''), end_date: String(t.end_date || ''),
+        extra_ranges: (Array.isArray(t.extra_ranges) ? t.extra_ranges : []).filter(function (r) {
+          return r && r.start && r.end;
+        }).map(function (r) { return { start: String(r.start), end: String(r.end) }; })
       };
     });
     out.groups = (Array.isArray(s.groups) ? s.groups : []).filter(function (g) {
@@ -139,7 +142,8 @@
       var items = lst.filter(function (x) { return x && x.id; }).map(function (x) {
         return {
           id: String(x.id), text: String(x.text || ''),
-          group: String(x.group || ''), done: !!x.done
+          group: String(x.group || ''), done: !!x.done,
+          kind: x.kind === 'meeting' || (!x.kind && String(x.text || '').includes('内部会议')) ? 'meeting' : 'event'
         };
       });
       if (items.length) out.cal[day] = items;
@@ -185,7 +189,8 @@
         // ⚠ 完成日期必须带上 —— 和桌面端 `records_from_dat` 的白名单一一对应，
         //   漏了就是「手机一勾选、桌面日历上的灰圈就没了」，而且不报错。
         done_at: t.done_at || '',
-        start_date: t.start_date || '', end_date: t.end_date || ''
+        start_date: t.start_date || '', end_date: t.end_date || '',
+        extra_ranges: t.extra_ranges || []
       };
     });
     out['order:todos'] = s.todos.map(function (t) { return t.id; });
@@ -198,7 +203,8 @@
     Object.keys(s.cal).forEach(function (day) {
       var items = s.cal[day] || [];
       out['cal:' + day] = items.map(function (x) {
-        return { id: x.id, text: x.text || '', group: x.group || '', done: !!x.done };
+        return { id: x.id, text: x.text || '', group: x.group || '', done: !!x.done,
+          kind: x.kind === 'meeting' ? 'meeting' : 'event' };
       });
       out['order:cal:' + day] = items.map(function (x) { return x.id; });
     });
@@ -268,12 +274,17 @@
         // 老记录没有这个字段 → 补空串，形状和本地新建的一致
         done_at: String(d.done_at || ''),
         start_date: String(d.start_date === undefined && existing[i] ? existing[i].start_date : d.start_date || ''),
-        end_date: String(d.end_date === undefined && existing[i] ? existing[i].end_date : d.end_date || '')
+        end_date: String(d.end_date === undefined && existing[i] ? existing[i].end_date : d.end_date || ''),
+        extra_ranges: Array.isArray(d.extra_ranges) ? d.extra_ranges :
+          (existing[i] ? existing[i].extra_ranges : [])
       };
     });
 
     // ---- 日历
-    var cal = {};
+    var cal = {}, oldCal = {};
+    Object.keys(s.cal).forEach(function (day) {
+      (s.cal[day] || []).forEach(function (x) { oldCal[x.id] = x; });
+    });
     Object.keys(live).forEach(function (k) {
       if (k.indexOf('cal:') !== 0) return;
       var day = k.slice(4);
@@ -283,7 +294,10 @@
         if (x && x.id) {
           byid[x.id] = {
             id: String(x.id), text: String(x.text || ''),
-            group: String(x.group || ''), done: !!x.done
+            group: String(x.group || ''), done: !!x.done,
+            kind: x.kind === 'meeting' ? 'meeting' :
+              (x.kind === undefined && oldCal[x.id] ? oldCal[x.id].kind :
+               (String(x.text || '').includes('内部会议') ? 'meeting' : 'event'))
           };
         }
       });

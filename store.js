@@ -97,12 +97,22 @@
         var key = 'todo:' + todo.id, known = Store.syncState.records[key], full = records[key];
         if (!known || !full) return;
         var legacy = Object.assign({}, full);
-        ['note', 'start_date', 'end_date'].forEach(function (field) {
+        ['note', 'start_date', 'end_date', 'extra_ranges'].forEach(function (field) {
           if (!Object.prototype.hasOwnProperty.call(todo, field)) delete legacy[field];
         });
         if (known.h === R.hashOf(legacy) && known.h !== R.hashOf(full)) {
           known.h = R.hashOf(full);
           migrated = true;
+        }
+      });
+      Object.keys(rawState && rawState.cal || {}).forEach(function (day) {
+        var key = 'cal:' + day, known = Store.syncState.records[key], full = records[key];
+        if (!known || !full || !Array.isArray(full)) return;
+        var legacy = full.map(function (item) {
+          var old = Object.assign({}, item); delete old.kind; return old;
+        });
+        if (known.h === R.hashOf(legacy) && known.h !== R.hashOf(full)) {
+          known.h = R.hashOf(full); migrated = true;
         }
       });
       if (migrated) this.saveSyncState();

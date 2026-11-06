@@ -27,7 +27,7 @@
        ① 这行常量  → 证明 app.js 是新的
        ② #tabs 的 computed position → 证明 app.css 是新的（旧版是 static，v8 起是 fixed）
        ③ 底栏底 / 视口高 → 直接量「到底贴没贴底」，不靠肉眼判断 */
-  var APP_BUILD = 'b32';
+  var APP_BUILD = 'b33';
 
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
@@ -244,6 +244,14 @@
     return S.cfg.showDone ? items : items.filter(function (t) { return !t.done; });
   }
 
+  function visibleTodo(items) {
+    if (!S.cfg.dueOnly) return visible(items);
+    var today = isoDay(new Date());
+    return items.filter(function (t) {
+      return !t.done && taskRanges(t).some(function (r) { return r.start <= today; });
+    });
+  }
+
   /* ---------------------------------------------------------------- 渲染 */
 
   var renderFrame = 0;
@@ -287,8 +295,9 @@
     $('#hdr-title').firstChild.nodeValue = titles[ui.tab];
     var sub = '';
     if (ui.tab === 'todo') {
-      var n = S.state.todos.filter(function (t) { return !t.done; }).length;
-      sub = n ? '剩 ' + n + ' 条' : '';
+      var n = S.cfg.dueOnly ? visibleTodo(S.state.todos).length :
+        S.state.todos.filter(function (t) { return !t.done; }).length;
+      sub = S.cfg.dueOnly ? '今日及逾期 ' + n + ' 条' : (n ? '剩 ' + n + ' 条' : '');
     }
     $('#hdr-sub').textContent = sub;
 
@@ -338,8 +347,9 @@
   function renderTodo() {
     var p = plan();
     var tools = '<div class="row" style="padding:6px 4px">' +
-      '<button class="hbtn' + (S.cfg.showDone ? '' : ' muted') + '" data-act="showdone">' +
-      (S.cfg.showDone ? '隐藏已完成' : '显示已完成') + '</button>' +
+      '<button class="hbtn due-filter' + (S.cfg.dueOnly ? ' on' : ' muted') + '" data-act="dueonly" aria-pressed="' + !!S.cfg.dueOnly + '">今日及逾期</button>' +
+      (S.cfg.dueOnly ? '' : '<button class="hbtn' + (S.cfg.showDone ? '' : ' muted') + '" data-act="showdone">' +
+      (S.cfg.showDone ? '隐藏已完成' : '显示已完成') + '</button>') +
       '<div class="grow"></div>' +
       '<button class="hbtn muted" data-act="newgroup">＋ 新建分组</button>' +
       '</div>';
@@ -363,13 +373,16 @@
     var h = '';
     if (!p.hasGroups) {
       // 没有分组就渲染成一列（和桌面端一样，不硬塞一个「未分组」头）
-      var items = visible(p.loose);
-      if (!items.length) h = '<div class="empty">' + (S.state.todos.length ? '都做完了 🎉' : '还没有待办，下面加一条') + '</div>';
+      var items = visibleTodo(p.loose);
+      if (!items.length) h = '<div class="empty">' + (S.cfg.dueOnly ? '今天及以前没有未完成的任务' :
+        (S.state.todos.length ? '都做完了 🎉' : '还没有待办，下面加一条')) + '</div>';
       else h = '<div class="card">' + items.map(todoRow).join('') + '</div>';
     } else {
       // ⚠ 每组**单独一张卡**：组头是卡片顶上一条实心色块，子项在下面。
       //   这样「母文件夹 / 子项」的差别一眼就能看出来，组与组之间也自然分开了。
       p.groups.forEach(function (grp) {
+        var its = visibleTodo(grp.items);
+        if (S.cfg.dueOnly && !its.length) return;
         h += '<div class="card gcard">' +
           '<div class="ghead" data-gid="' + grp.g.id + '" data-act="fold">' +
           '<button class="group-toggle" aria-expanded="' + !grp.g.collapsed + '">' +
@@ -379,7 +392,6 @@
           '<button class="mv group-menu" data-act="gedit" aria-label="' + esc('编辑分组：' + grp.g.name) + '">⋯</button>' +
           '</div>';
         if (!grp.g.collapsed) {
-          var its = visible(grp.items);
           h += '<div class="gwrap">';
           if (!its.length) h += '<div class="hint">（空' + (grp.items.length ? '，已完成都藏起来了' : '') + '）</div>';
           else its.forEach(function (t) { h += todoRow(t); });
@@ -387,20 +399,23 @@
         }
         h += '</div>';
       });
-      h += '<div class="card gcard">' +
-        '<div class="ghead" data-act="fold-loose">' +
-        '<button class="group-toggle" aria-expanded="' + !S.state.loose_collapsed + '">' +
-        '<svg class="tri' + (S.state.loose_collapsed ? ' folded' : '') + '" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg>' +
-        '<span class="gname">未分组</span></button>' +
-        '<span class="gcount">' + p.looseDone + '/' + p.loose.length + '</span></div>';
-      if (!S.state.loose_collapsed) {
-        var ls = visible(p.loose);
-        h += '<div class="gwrap">';
-        if (!ls.length) h += '<div class="hint">（空）</div>';
-        else ls.forEach(function (t) { h += todoRow(t); });
+      var ls = visibleTodo(p.loose);
+      if (!S.cfg.dueOnly || ls.length) {
+        h += '<div class="card gcard">' +
+          '<div class="ghead" data-act="fold-loose">' +
+          '<button class="group-toggle" aria-expanded="' + !S.state.loose_collapsed + '">' +
+          '<svg class="tri' + (S.state.loose_collapsed ? ' folded' : '') + '" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg>' +
+          '<span class="gname">未分组</span></button>' +
+          '<span class="gcount">' + p.looseDone + '/' + p.loose.length + '</span></div>';
+        if (!S.state.loose_collapsed) {
+          h += '<div class="gwrap">';
+          if (!ls.length) h += '<div class="hint">（空）</div>';
+          else ls.forEach(function (t) { h += todoRow(t); });
+          h += '</div>';
+        }
         h += '</div>';
       }
-      h += '</div>';
+      if (!h) h = '<div class="empty">今天及以前没有未完成的任务</div>';
     }
     updateHTML($('#todo-list'), h);
   }
@@ -434,10 +449,11 @@
       return false;
     }
     S.mutate(function (st) {
+      var today = S.cfg.dueOnly ? isoDay(new Date()) : '';
       st.todos.push({
         id: R.newId(), text: text, done: false, star: 0,
         group: group === undefined ? (ui.newTodoGroup || '') : group,
-        done_at: '', start_date: '', end_date: '', extra_ranges: []
+        done_at: '', start_date: today, end_date: today, extra_ranges: []
       });
     });
     return true;
@@ -1171,6 +1187,7 @@
     var b = e.target.closest('[data-act]');
     if (!b) return;
     if (b.dataset.act === 'showdone') { S.saveCfg({ showDone: !S.cfg.showDone }); render(); }
+    if (b.dataset.act === 'dueonly') { S.saveCfg({ dueOnly: !S.cfg.dueOnly }); render(); }
     if (b.dataset.act === 'newgroup') askNewGroup();
   });
 

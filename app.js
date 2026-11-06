@@ -27,7 +27,7 @@
        ① 这行常量  → 证明 app.js 是新的
        ② #tabs 的 computed position → 证明 app.css 是新的（旧版是 static，v8 起是 fixed）
        ③ 底栏底 / 视口高 → 直接量「到底贴没贴底」，不靠肉眼判断 */
-  var APP_BUILD = 'b33';
+  var APP_BUILD = 'b34';
 
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
@@ -297,7 +297,7 @@
     if (ui.tab === 'todo') {
       var n = S.cfg.dueOnly ? visibleTodo(S.state.todos).length :
         S.state.todos.filter(function (t) { return !t.done; }).length;
-      sub = S.cfg.dueOnly ? '今日及逾期 ' + n + ' 条' : (n ? '剩 ' + n + ' 条' : '');
+      sub = S.cfg.dueOnly ? todayLabel() + ' · ' + n + ' 条' : (n ? '剩 ' + n + ' 条' : '');
     }
     $('#hdr-sub').textContent = sub;
 
@@ -347,7 +347,7 @@
   function renderTodo() {
     var p = plan();
     var tools = '<div class="row" style="padding:6px 4px">' +
-      '<button class="hbtn due-filter' + (S.cfg.dueOnly ? ' on' : ' muted') + '" data-act="dueonly" aria-pressed="' + !!S.cfg.dueOnly + '">今日及逾期</button>' +
+      '<button class="hbtn due-filter' + (S.cfg.dueOnly ? ' on' : ' muted') + '" data-act="dueonly" aria-label="只显示今天及以前未完成的任务" aria-pressed="' + !!S.cfg.dueOnly + '">' + todayLabel() + '</button>' +
       (S.cfg.dueOnly ? '' : '<button class="hbtn' + (S.cfg.showDone ? '' : ' muted') + '" data-act="showdone">' +
       (S.cfg.showDone ? '隐藏已完成' : '显示已完成') + '</button>') +
       '<div class="grow"></div>' +
@@ -487,6 +487,7 @@
   /* ------------------------------------------------------------ 任务月历 */
 
   function isoDay(date) { return dayKey(date.getFullYear(), date.getMonth(), date.getDate()); }
+  function todayLabel() { return isoDay(new Date()).replace(/-/g, '.'); }
   function shiftDay(key, days) {
     var d = new Date(key + 'T12:00:00');
     d.setDate(d.getDate() + days);

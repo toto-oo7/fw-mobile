@@ -207,6 +207,7 @@ html.pwa-standalone body {
 }
 #p-todo #todo-tools { flex: 0 0 auto; }
 #p-todo #todo-tools .row { gap: 4px; flex-wrap: wrap; }
+#p-todo .due-filter { font: 13px "Source Code Pro", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
 #p-todo .due-filter.on { background: var(--accent-soft); border-radius: 8px; padding: 6px 9px; }
 #p-todo #todo-list {
   flex: 1 1 auto; min-height: 0;
